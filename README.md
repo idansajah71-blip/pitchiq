@@ -11,13 +11,16 @@ leaderboard.
 
 ## Live demo
 
-Replace with your deployed URL after pushing to Streamlit Community Cloud:
-**[PitchIQ on Streamlit Cloud ← placeholder]** · run locally with
-`streamlit run app/streamlit_app.py`.
+Deployed on **Streamlit Community Cloud** — link to be added before
+submission. Until then, run it locally:
 
-| ![App shot map placeholder](reports/figures/fig1_shot_map.png) |
+```bash
+streamlit run app/streamlit_app.py
+```
+
+| ![Shot map](reports/figures/fig1_shot_map.png) |
 |---|
-| *Placeholder for the live app screenshot — offline figure: shot map by PitchIQ xG* |
+| *Shot Map — every shot sized/coloured by PitchIQ xG; in the app this is a fully interactive Plotly visual with hover details and filters.* |
 
 ## The problem
 
