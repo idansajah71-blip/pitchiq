@@ -102,7 +102,7 @@ XG_SCALE = [
 ]
 HOVERLABEL = dict(bgcolor="#0e1520", bordercolor="#26364a", font=dict(color=TEXT, size=13))
 
-PITCH_LINE = "rgba(230, 237, 243, 0.5)"
+PITCH_LINE = "rgba(230, 237, 243, 0.62)"
 
 PITCH_SHAPES = [
     dict(type="rect", x0=0, y0=0, x1=120, y1=80, line=dict(color=PITCH_LINE, width=2), layer="below"),
@@ -327,6 +327,15 @@ div[data-testid="stMetricLabel"] p {{ margin-bottom: 2px; }}
 /* Dataframe panels */
 div[data-testid="stDataFrame"] {{ border: 1px solid {LINE}; border-radius: 12px; overflow: hidden; }}
 
+/* Poster panels around key charts */
+.st-key-map-panel, .st-key-goal-panel {{
+    background: linear-gradient(118deg, #0d1420 0%, {NAVY} 48%, rgba(28,94,54,0.4) 115%);
+    border: 1px solid {LINE};
+    border-radius: 14px;
+    padding: 12px 10px 8px 10px;
+        margin-bottom: 2px;
+}}
+
 /* Pill buttons (sidebar) */
 .piq-pill {{
     display: inline-flex; align-items: center; gap: 7px;
@@ -507,8 +516,8 @@ def shot_map_page() -> None:
                 cmax=float(np.percentile(view["xg_display"], 98)),
                 opacity=0.8,
                 line=dict(width=0.7, color="#0b0e14"),
-                colorbar=dict(title=dict(text="xG", side="right"), thickness=11, len=0.72,
-                              outlinewidth=0, tickfont=dict(size=10)),
+                colorbar=dict(title=dict(text="xG", side="right"), thickness=10, len=0.68,
+                              outlinewidth=0, tickfont=dict(size=10), tickformat=".2f"),
             ),
             customdata=custom,
             hovertemplate=(
@@ -527,12 +536,29 @@ def shot_map_page() -> None:
         font=dict(family=BODY, color=TEXT_DIM),
         shapes=PITCH_SHAPES,
         height=560,
-        margin=dict(l=10, r=10, t=10, b=10),
+        margin=dict(l=10, r=58, t=10, b=10),
         xaxis=dict(range=[-3, 126], showgrid=False, zeroline=False, visible=False,
                    scaleanchor="y", scaleratio=1.0),
         yaxis=dict(range=[-3, 83], showgrid=False, zeroline=False, visible=False),
     )
-    st.plotly_chart(fig, width="stretch")
+
+    # Poster echo of the empty half: giant display-type watermark.
+    fig.add_annotation(
+        x=26, y=40, text="<b>12.241</b><br><span style='font-size:16px'>TEMBAKAN</span>",
+        showarrow=False, font=dict(family=DISPLAY, size=64, color="rgba(230,237,243,0.07)"),
+        align="center",
+    )
+    fig.add_annotation(
+        x=26, y=22, text="rata-rata PitchIQ xG 0.098",
+        showarrow=False, font=dict(family=BODY, size=13, color="rgba(46,194,126,0.30)"),
+        align="center",
+    )
+
+    with st.container(key="map-panel"):
+        st.plotly_chart(
+            fig, width="stretch",
+            config=dict(displayModeBar=False, displaylogo=False),
+        )
 
     st.caption(
         "**Cara membaca:** titik besar hijau = peluang bagus (xG tinggi); titik "
@@ -661,7 +687,11 @@ def estimator_page() -> None:
                        scaleanchor="y", scaleratio=1.0),
             yaxis=dict(range=[22, 58], showgrid=False, zeroline=False, visible=False),
         )
-        st.plotly_chart(goal_fig, width="stretch")
+        with st.container(key="goal-panel"):
+            st.plotly_chart(
+                goal_fig, width="stretch",
+                config=dict(displayModeBar=False, displaylogo=False),
+            )
 
     with st.expander("Pahami angkanya"):
         st.markdown(
