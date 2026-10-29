@@ -1,0 +1,11 @@
+# Streamlit Community Cloud theme (dark)
+[theme]
+base = "dark"
+primaryColor = "#e63946"
+backgroundColor = "#11151c"
+secondaryBackgroundColor = "#1d2530"
+textColor = "#e8edf4"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false

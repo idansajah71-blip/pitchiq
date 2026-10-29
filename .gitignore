@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+.vscode/
+.pytest_cache/
+# raw downloads are reproducible via `python -m src.data`
+data/raw/
+# full raw shot table is rebuilt from data/raw caches + src/features
+data/shots.parquet
