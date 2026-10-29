@@ -11,8 +11,9 @@ leaderboard.
 
 ## Live demo
 
-Deployed on **Streamlit Community Cloud** — URL to be added after the public
-deployment is verified. Until then, run locally:
+**[▶ pitchiq-xg.streamlit.app](https://pitchiq-xg.streamlit.app)** — deployed
+on Streamlit Community Cloud. First load takes ~1 minute (cold start) while
+dependencies install and the model boots. Or run locally:
 
 ```bash
 streamlit run app/streamlit_app.py

@@ -1,6 +1,8 @@
-# Devpost description (draft — refresh reports before final submission)
+# Devpost description (final)
 
 **Title:** PitchIQ — Expected Goals Intelligence
+
+**Live demo:** <https://pitchiq-xg.streamlit.app> · **Source:** <https://github.com/idansajah71-blip/pitchiq>
 
 ## Problem
 Every shot counts as one in a basic box score, but chances differ dramatically. Coaches and analysts need to understand where shots come from, what context affects chance quality, and which patterns are worth investigating—not just receive another chart of raw counts.
