@@ -1,10 +1,10 @@
-# Streamlit Community Cloud theme (dark)
+# Streamlit Community Cloud theme (dark, navy + emerald)
 [theme]
 base = "dark"
-primaryColor = "#e63946"
-backgroundColor = "#11151c"
-secondaryBackgroundColor = "#1d2530"
-textColor = "#e8edf4"
+primaryColor = "#22d3a5"
+backgroundColor = "#0b1117"
+secondaryBackgroundColor = "#121a24"
+textColor = "#e6edf3"
 font = "sans serif"
 
 [browser]
