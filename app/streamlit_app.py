@@ -1,8 +1,10 @@
-"""PitchIQ - Expected Goals Intelligence (Streamlit UI).
+"""PitchIQ — Expected Goals Intelligence (Streamlit UI).
 
-Pages: shot map, xG estimator, model evaluation, player/team insights.
-All numbers come from the saved pipeline (train.py + reports). The StatsBomb
-xG value is used only as a benchmark, never as an input feature.
+Sportswear-poster design language: giant display typography, diagonal
+navy-to-green bands, dotted stat cards, numbered sections and real inline-SVG
+icons (no emoji). Pages: shot map, xG estimator, model evaluation, insights.
+All numbers come from the saved pipeline (train.py + reports); StatsBomb xG is
+a benchmark only, never an input feature.
 
 Run from the project root:  streamlit run app/streamlit_app.py
 """
@@ -29,7 +31,7 @@ from src.features import FEATURE_COLUMNS, distance_to_goal, shot_angle_deg
 
 MIN_SHOTS_DEFAULT = 15
 MIN_ASSISTS = 10
-LOW_QUALITY_XG = 0.05
+ASSETS_DIR = ROOT / "app" / "assets"
 
 REPO_URL = "https://github.com/idansajah71-blip/pitchiq"
 DEMO_URL = "https://pitchiq-xg.streamlit.app"
@@ -46,21 +48,49 @@ page_titles: dict[str, str] = {
     "Insight Pemain & Tim": "Insight Pemain & Tim — leaderboard & rekomendasi",
 }
 
-page_subtitles: dict[str, str] = {
-    "Shot Map": "Setiap titik = satu tembakan (serangan ke gawang di kanan). Ukuran & warna = xG — makin besar dan makin hijau, makin besar peluang jadi gol.",
-    "xG Estimator": "Geser posisi & situasi tembakan anggakan — probabilitas gol dihitung real-time dengan model yang sama seperti di dataset nyata.",
-    "Evaluasi Model": "Holdout berkelompok per match (tanpa bocor), metrik probabilitas yang jujur, dan benchmark StatsBomb xG pada data yang identik.",
-    "Insight Pemain & Tim": "Leaderboard scoped per pemain–tim–kompetisi, pola zona, dan rekomendasi pelatih yang berlabel asumsi — bukan klaim kausal.",
+# Poster configuration per page: index letter, display words, subtitle.
+page_posters: dict[str, dict[str, str]] = {
+    "Shot Map": dict(
+        index="A", word_1="SHOT", word_2="MAP",
+        subtitle="Setiap titik = satu tembakan, serangan menghadap gawang di kanan. "
+                 "Ukuran & warna titik = xG: makin besar dan makin hijau, makin besar peluang jadi gol.",
+        asset="hero_shotmap.png",
+    ),
+    "xG Estimator": dict(
+        index="B", word_1="xG", word_2="ESTIMATOR",
+        subtitle="Geser posisi & situasi tembakan apa pun — probabilitas gol dihitung "
+                 "real-time dengan model yang sama seperti di dataset nyata.",
+        asset="hero_estimator.png",
+    ),
+    "Evaluasi Model": dict(
+        index="C", word_1="MODEL", word_2="AUDIT",
+        subtitle="Holdout berkelompok per match tanpa bocor, metrik probabilitas yang "
+                 "jujur, dan benchmark StatsBomb xG diuji pada data yang identik.",
+        asset="hero_evaluation.png",
+    ),
+    "Insight Pemain & Tim": dict(
+        index="D", word_1="TEAM", word_2="INSIGHT",
+        subtitle="Leaderboard scoped per pemain–tim–kompetisi, pola zona, dan "
+                 "rekomendasi pelatih berlabel asumsi — bukan klaim kausal.",
+        asset="hero_insights.png",
+    ),
 }
 
-# --- Plotly design tokens ----------------------------------------------------
-PITCH_LINE = "#3d4b5c"
-GRID_DIM = "#22303f"
-ACCENT = "#22d3a5"
-ACCENT_SOFT = "rgba(34, 211, 165, 0.35)"
-DANGER = "#ef4444"
-BENCH = "#f59e0b"
-MUTED = "#7c8b9b"
+# --- Design tokens ------------------------------------------------------------
+INK = "#0b0e14"
+NAVY = "#101a2c"
+NAVY_2 = "#152944"
+PANEL = "#111a26"
+LINE = "#26364a"
+GREEN = "#2ec27e"
+GREEN_DIM = "rgba(46, 194, 126, 0.14)"
+RED = "#ff4655"
+AMBER = "#f59e0b"
+TEXT = "#e6edf3"
+TEXT_DIM = "#93a4b5"
+
+DISPLAY = "'Barlow Condensed','Oswald','Arial Narrow',Impact,sans-serif"
+BODY = "'Inter','Source Sans Pro',system-ui,sans-serif"
 
 XG_SCALE = [
     [0.0, "#7f1d1d"],
@@ -70,9 +100,9 @@ XG_SCALE = [
     [0.75, "#65a30d"],
     [1.0, "#16a34a"],
 ]
-HOVERLABEL = dict(
-    bgcolor="#0f172a", bordercolor="#334155", font=dict(color="#e2e8f0", size=13)
-)
+HOVERLABEL = dict(bgcolor="#0e1520", bordercolor="#26364a", font=dict(color=TEXT, size=13))
+
+PITCH_LINE = "rgba(230, 237, 243, 0.5)"
 
 PITCH_SHAPES = [
     dict(type="rect", x0=0, y0=0, x1=120, y1=80, line=dict(color=PITCH_LINE, width=2), layer="below"),
@@ -87,13 +117,70 @@ PITCH_SHAPES = [
     dict(type="line", x0=120, y0=36, x1=120, y1=44, line=dict(color="#ffffff", width=4), layer="below"),
 ]
 
-LAYOUT_BASE = dict(
-    template="plotly_dark",
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    hoverlabel=HOVERLABEL,
-    font=dict(family="Inter, 'Source Sans Pro', system-ui, sans-serif", color="#c9d4e0"),
-)
+
+# --- Inline SVG icons (stroke=currentColor, no emoji) -------------------------
+ICONS: dict[str, str] = {
+    "pitch": (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+        'stroke-linecap="round" stroke-linejoin="round" width="16" height="16">'
+        '<rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/>'
+        '<line x1="12" y1="4.5" x2="12" y2="19.5"/>'
+        '<circle cx="12" cy="12" r="2.6"/>'
+        '<rect x="17.5" y="9" width="4" height="6"/></svg>'
+    ),
+    "target": (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+        'stroke-linecap="round" stroke-linejoin="round" width="16" height="16">'
+        '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/>'
+        '<circle cx="12" cy="12" r="0.8" fill="currentColor"/></svg>'
+    ),
+    "chart": (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+        'stroke-linecap="round" stroke-linejoin="round" width="16" height="16">'
+        '<path d="M3.5 20.5h17"/><path d="M4.5 15.5l4-5 3.5 3 5.5-6.5"/>'
+        '<circle cx="8.5" cy="10.5" r="0.7" fill="currentColor"/>'
+        '<circle cx="12" cy="13.5" r="0.7" fill="currentColor"/></svg>'
+    ),
+    "bolt": (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+        'stroke-linecap="round" stroke-linejoin="round" width="16" height="16">'
+        '<path d="M13 2.5L5 13.5h5l-1 8 8-11h-5l1-8z"/></svg>'
+    ),
+    "arrow": (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '
+        'stroke-linecap="round" stroke-linejoin="round" width="14" height="14">'
+        '<path d="M4.5 12h15"/><path d="M13.5 6l6 6-6 6"/></svg>'
+    ),
+    "github": (
+        '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">'
+        '<path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.72.5.1.68-.22.68-.49'
+        ' 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5'
+        '-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.57 2.34 1.11 2.91.85'
+        '.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75'
+        '-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.33'
+        ' 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94'
+        '-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.6.69.49'
+        'A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>'
+    ),
+    "users": (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+        'stroke-linecap="round" stroke-linejoin="round" width="16" height="16">'
+        '<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5"/>'
+        '<circle cx="17.5" cy="9.5" r="2.6"/><path d="M16.5 14.7c2.9.2 5 2.1 5 4.8"/></svg>'
+    ),
+    "zone": (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+        'stroke-linecap="round" stroke-linejoin="round" width="16" height="16">'
+        '<rect x="3" y="3" width="18" height="18" rx="1.5"/>'
+        '<path d="M3 12h18M12 3v18"/><rect x="15" y="15" width="6" height="6"/>'
+        '<path d="M15 15l6 6M21 15l-6 6"/></svg>'
+    ),
+}
+
+
+def icon(name: str, size: int = 16) -> str:
+    """Return an inline SVG icon sized for inline use."""
+    return ICONS[name].replace('width="16" height="16"', f'width="{size}" height="{size}"')
 
 
 BODY_PARTS = ["Right Foot", "Left Foot", "Head", "Other"]
@@ -136,53 +223,190 @@ def load_markdown(name: str) -> str:
     return (REPORTS_DIR / name).read_text(encoding="utf-8")
 
 
-CSS = """
-<style>
-    div[data-testid="stMetric"] {
-        background: #121a24;
-        border: 1px solid #22303f;
-        border-radius: 12px;
-        padding: 14px 16px 10px 16px;
-    }
-    div[data-testid="stMetricLabel"] p { margin-bottom: 2px; }
-    .pitchiq-brand {
-        background: linear-gradient(135deg, #101826 0%, #16283a 60%, #1c4d3f 130%);
-        border: 1px solid #22303f;
-        border-radius: 14px;
-        padding: 14px 16px;
-        margin-bottom: 14px;
-    }
-    .pitchiq-brand h2 { margin: 0; letter-spacing: 0.2px; }
-    .pitchiq-brand p { margin: 6px 0 0 0; color: #93a4b5; font-size: 0.9em; }
-    .pitchiq-headline {
-        background: linear-gradient(90deg, rgba(34,211,165,0.16), rgba(34,211,165,0.0) 62%);
-        border-left: 3px solid #22d3a5;
-        border-radius: 6px;
-        padding: 10px 14px;
-        margin: 4px 0 14px 0;
-    }
-    .pitchiq-headline p { margin: 0; color: #aebbc9; }
-    .pitchiq-prob {
-        font-size: 3.2rem; font-weight: 800; line-height: 1.05;
-        letter-spacing: -1px;
-    }
-    .pitchiq-chip {
-        display: inline-block; padding: 2px 10px; margin: 2px 4px 2px 0;
-        border: 1px solid #334155; border-radius: 999px;
-        background: #121a24; color: #aebbc9; font-size: 0.85em;
-    }
-    a.pitchiq-link { color: #22d3a5 !important; text-decoration: none; }
-</style>
-"""
+# ---------------------------------------------------------------------------
+# Design system helpers
+# ---------------------------------------------------------------------------
 
 
-def page_header(page: str) -> None:
-    """Render the consistent page headline block."""
-    st.title(page_titles[page].split(" — ")[0])
+def global_css() -> None:
+    """Inject fonts + component styling once per run."""
     st.markdown(
-        f'<div class="pitchiq-headline"><p>{page_subtitles[page]}</p></div>',
+        f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {{ color-scheme: dark; }}
+
+/* Poster hero band */
+.piq-hero {{
+    position: relative; overflow: hidden;
+    background: linear-gradient(102deg, {NAVY} 0%, {NAVY_2} 52%, rgba(28,94,54,0.55) 100%);
+    border: 1px solid {LINE};
+    border-radius: 16px;
+    padding: 24px 26px 20px 26px;
+    margin-bottom: 4px;
+}}
+.piq-hero::before {{
+    content: ""; position: absolute; top: -55%; right: 6%;
+    width: 280px; height: 190%;
+    background: linear-gradient(180deg, rgba(46,194,126,0.20), rgba(46,194,126,0));
+    transform: rotate(16deg);
+}}
+.piq-hero::after {{
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0;
+    width: 3px; background: linear-gradient(180deg, {GREEN}, transparent);
+}}
+.piq-hero-img {{
+    position: absolute; right: 18px; bottom: -8px; height: 158px;
+    filter: drop-shadow(0 12px 26px rgba(0,0,0,0.55));
+    pointer-events: none;
+}}
+.piq-index {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1.5px solid {TEXT_DIM}; color: {TEXT_DIM};
+    font: 600 12px/1 {BODY}; letter-spacing: 0;
+    vertical-align: middle; margin-right: 10px;
+}}
+.piq-word {{
+    display: block;
+    font-family: {DISPLAY}; font-weight: 700;
+    font-size: clamp(42px, 5.6vw, 74px);
+    line-height: 0.95; letter-spacing: 2px;
+    text-transform: uppercase; color: {TEXT};
+    margin: 8px 0 10px 0; white-space: nowrap;
+}}
+.piq-word .ghost {{
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(230,237,243,0.42);
+    margin-left: 0.22em;
+}}
+.piq-word .amp {{ color: {GREEN}; }}
+.piq-sub {{
+    font: 400 13.5px/1.55 {BODY}; color: {TEXT_DIM};
+    max-width: 640px; margin: 0 0 10px 0;
+}}
+.piq-crumbs {{ margin-top: 6px; }}
+.piq-chip {{
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 11px; margin-right: 7px;
+    border: 1px solid {LINE}; border-radius: 999px;
+    background: rgba(255,255,255,0.03);
+    color: {TEXT_DIM}; font: 600 10.5px/1.9 {BODY};
+    letter-spacing: 0.14em; text-transform: uppercase;
+}}
+.piq-chip svg {{ color: {GREEN}; }}
+
+/* Section headings: letter circle + spaced caps + rule */
+.piq-section {{
+    display: flex; align-items: center; gap: 12px;
+    margin: 22px 0 12px 0;
+}}
+.piq-section .idx {{
+    flex: 0 0 auto; width: 27px; height: 27px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: {GREEN_DIM}; color: {GREEN};
+    font: 700 12px/1 {DISPLAY}; border: 1px solid rgba(46,194,126,0.4);
+}}
+.piq-section .t {{
+    flex: 0 0 auto; white-space: nowrap;
+    font: 700 12.5px/1.6 {BODY}; letter-spacing: 0.16em;
+    text-transform: uppercase; color: {TEXT};
+}}
+.piq-section .rule {{ flex: 1 1 auto; height: 1px; background: {LINE}; }}
+
+/* Metric tiles: dotted border, big numbers */
+div[data-testid="stMetric"] {{
+    background: linear-gradient(135deg, {PANEL} 0%, #0f1622 100%);
+    border: 1.5px dashed {LINE};
+    border-radius: 12px;
+    padding: 14px 16px 10px 16px;
+}}
+div[data-testid="stMetricLabel"] p {{ margin-bottom: 2px; }}
+
+/* Dataframe panels */
+div[data-testid="stDataFrame"] {{ border: 1px solid {LINE}; border-radius: 12px; overflow: hidden; }}
+
+/* Pill buttons (sidebar) */
+.piq-pill {{
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 14px; border-radius: 999px; margin: 3px 6px 3px 0;
+    border: 1.4px solid {LINE}; background: {PANEL};
+    color: {TEXT} !important; text-decoration: none !important;
+    font: 600 11px/2 {BODY}; letter-spacing: 0.12em; text-transform: uppercase;
+    transition: border-color .15s ease, color .15s ease;
+}}
+.piq-pill:hover {{ border-color: {GREEN}; color: {GREEN} !important; }}
+.piq-pill svg {{ color: {GREEN}; }}
+
+/* Sidebar brand */
+.piq-brand {{ display: flex; align-items: center; gap: 11px; margin: 6px 0 2px 0; }}
+.piq-brand .mark {{ flex: 0 0 auto; }}
+.piq-brand .name {{
+    font-family: {DISPLAY}; font-weight: 700; letter-spacing: 0.28em;
+    font-size: 19px; color: {TEXT}; text-transform: uppercase;
+}}
+.piq-brand .tag {{ font: 500 10px/1.5 {BODY}; letter-spacing: 0.18em; color: {GREEN}; text-transform: uppercase; }}
+
+/* Expander polish */
+div[data-testid="stExpander"] {{
+    border: 1px solid {LINE} !important; border-radius: 12px !important;
+    background: {PANEL} !important;
+}}
+</style>
+""",
         unsafe_allow_html=True,
     )
+
+
+def hero(page: str) -> None:
+    """Poster band: giant display words + diagonal band + numbered index."""
+    cfg = page_posters[page]
+    img = ASSETS_DIR / cfg["asset"]
+    img_html = (
+        f'<img class="piq-hero-img" src="data:image/png;base64,{__import__("base64").b64encode(img.read_bytes()).decode()}" alt="">'
+        if img.exists() else ""
+    )
+    word = (
+        f"<span>{cfg['word_1']}</span>"
+        f"<span class='ghost'>{cfg['word_2']}</span>"
+    )
+    chips = "".join(
+        f'<span class="piq-chip">{icon(ic, 13)} {txt}</span>'
+        for ic, txt in (
+            ("pitch", "12.241 tembakan"),
+            ("zone", "479 match"),
+            ("chart", "3 kompetisi"),
+        )
+    )
+    st.markdown(
+        f"""
+<div class="piq-hero">
+  {img_html}
+  <span class="piq-index">{cfg['index']}</span>
+  <span class="piq-chip" style="border-color:rgba(46,194,126,0.5);color:{GREEN};">{icon('users',13)} PITCHIQ xG INTELLIGENCE</span>
+  <div class="piq-word">{word}</div>
+  <p class="piq-sub">{cfg['subtitle']}</p>
+  <div class="piq-crumbs">{chips}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def section(letter: str, title: str, icon_name: str | None = None) -> None:
+    """Numbered section heading: circle letter + spaced caps + thin rule."""
+    ic = f"{icon(icon_name, 14)} " if icon_name else ""
+    st.markdown(
+        f"""<div class="piq-section">
+<span class="idx">{letter}</span>
+<span class="t">{ic}{title}</span>
+<span class="rule"></span>
+</div>""",
+        unsafe_allow_html=True,
+    )
+    # Keep real widget spacing tight after the custom rule.
+    st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
 
 def footer() -> None:
@@ -209,18 +433,18 @@ def filter_and_display(data: pd.DataFrame, show_penalties: bool) -> pd.DataFrame
 
 def shot_map_page() -> None:
     data = load_shots()
-    page_header("Shot Map")
+    hero("Shot Map")
 
-    with st.expander("🎛 Filter tembakan", expanded=True):
-        head = st.columns(6)
-        team = head[0].selectbox("Tim", ["Semua"] + sorted(data["team"].astype(str).unique().tolist()))
-        team_players = sorted(data.loc[data["team"] == team, "player"].astype(str).unique())
-        all_players = sorted(data["player"].value_counts().loc[lambda c: c >= 15].index.astype(str).tolist())
-        player = head[1].selectbox("Pemain", ["Semua"] + (team_players if team != "Semua" else all_players))
-        body = head[2].selectbox("Bagian tubuh", ["Semua"] + sorted(data["body_part"].dropna().astype(str).unique().tolist()))
-        shot_type = head[3].selectbox("Tipe tembakan", ["Semua"] + sorted(data["shot_type"].dropna().astype(str).unique().tolist()))
-        goal_filter = head[4].radio("Hasil", ["Semua", "Gol", "Bukan gol"], horizontal=True)
-        show_penalties = head[5].toggle("Sertakan penalti", value=False)
+    section("1", "Filter tembakan", "target")
+    head = st.columns(6)
+    team = head[0].selectbox("Tim", ["Semua"] + sorted(data["team"].astype(str).unique().tolist()))
+    team_players = sorted(data.loc[data["team"] == team, "player"].astype(str).unique())
+    all_players = sorted(data["player"].value_counts().loc[lambda c: c >= 15].index.astype(str).tolist())
+    player = head[1].selectbox("Pemain", ["Semua"] + (team_players if team != "Semua" else all_players))
+    body = head[2].selectbox("Bagian tubuh", ["Semua"] + sorted(data["body_part"].dropna().astype(str).unique().tolist()))
+    shot_type = head[3].selectbox("Tipe tembakan", ["Semua"] + sorted(data["shot_type"].dropna().astype(str).unique().tolist()))
+    goal_filter = head[4].radio("Hasil", ["Semua", "Gol", "Bukan gol"], horizontal=True)
+    show_penalties = head[5].toggle("Sertakan penalti", value=False)
 
     view = filter_and_display(data, show_penalties)
     if team != "Semua":
@@ -240,6 +464,7 @@ def shot_map_page() -> None:
         st.info("Tidak ada tembakan pada kombinasi filter ini — longgarkan filternya.")
         return
 
+    section("2", "Ringkasan pilihan", "users")
     metrics = st.columns(3)
     conversion = view["is_goal"].mean()
     metrics[0].metric("Tembakan ditampilkan", f"{len(view):,}")
@@ -250,6 +475,8 @@ def shot_map_page() -> None:
         st.caption("xG penalti berasal dari benchmark StatsBomb; non-penalti memakai PitchIQ. Rata-rata gabungan mencampur dua sumber — bukan satu model homogen.")
 
     import plotly.graph_objects as go
+
+    section("3", "Peta tembakan", "pitch")
 
     minutes = view["minute"].astype(int).astype(str)
     seconds = view["second"].astype(int).map(lambda s: f"{s:02d}")
@@ -279,7 +506,7 @@ def shot_map_page() -> None:
                 cmin=0.0,
                 cmax=float(np.percentile(view["xg_display"], 98)),
                 opacity=0.8,
-                line=dict(width=0.7, color="#0b1117"),
+                line=dict(width=0.7, color="#0b0e14"),
                 colorbar=dict(title=dict(text="xG", side="right"), thickness=11, len=0.72,
                               outlinewidth=0, tickfont=dict(size=10)),
             ),
@@ -293,7 +520,11 @@ def shot_map_page() -> None:
         )
     )
     fig.update_layout(
-        **LAYOUT_BASE,
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        hoverlabel=HOVERLABEL,
+        font=dict(family=BODY, color=TEXT_DIM),
         shapes=PITCH_SHAPES,
         height=560,
         margin=dict(l=10, r=10, t=10, b=10),
@@ -348,13 +579,13 @@ def build_estimator_row(x: float, y: float, body_part: str, shot_type: str,
 
 
 def estimator_page() -> None:
-    page_header("xG Estimator")
+    hero("xG Estimator")
     artifact = load_model()
     penalty_rate = load_shots().loc[lambda df: df["is_penalty"].fillna(False), "is_goal"].mean()
 
     left, right = st.columns([1, 1.4], gap="large")
     with left:
-        st.markdown("##### Posisi & situasi")
+        section("1", "Posisi & situasi", "target")
         x = st.slider("Kedalaman tembakan (x: 60 = garis tengah, 120 = gawang lawan)", 0, 119, 110)
         y = st.slider("Posisi samping (y: 40 = tengah gawang)", 0, 80, 40)
         body_part = st.selectbox("Bagian tubuh", BODY_PARTS)
@@ -370,23 +601,25 @@ def estimator_page() -> None:
             probability = float(calibrator.predict(np.array([probability]))[0])
 
         if probability >= 0.30:
-            prob_color = "#22c55e"
+            prob_color = "#16a34a"
         elif probability >= 0.12:
             prob_color = "#d9a406"
         else:
-            prob_color = "#ef4444"
+            prob_color = RED
 
+        section("2", "Hasil model", "bolt")
         prob_col, dist_col, ang_col = st.columns([1.3, 1, 1])
         with prob_col:
             st.markdown(
-                f'<div class="pitchiq-prob" style="color:{prob_color}">'
-                f'{probability:.1%}</div>',
+                f"""<div style="font-family:{DISPLAY};font-weight:700;letter-spacing:1px;
+                font-size:56px;line-height:1.02;color:{prob_color};">{probability:.1%}</div>
+                <div style="font:600 10.5px/1.6 {BODY};letter-spacing:0.16em;text-transform:uppercase;
+                color:{TEXT_DIM};margin-top:2px;">Peluang jadi gol</div>""",
                 unsafe_allow_html=True,
             )
-            st.caption("Peluang jadi gol")
             st.progress(min(probability, 1.0))
         dist_col.metric("Jarak ke gawang", f"{distance:.1f}")
-        ang_col.metric("Sudut gawang terbuka", f"{angle:.1f}°")
+        ang_col.metric("Sudut gawang terbuka", f"{angle:.1f}")
 
         import plotly.graph_objects as go
 
@@ -396,8 +629,8 @@ def estimator_page() -> None:
                 x=[x, 120.0, 120.0, x],
                 y=[y, 36.0, 44.0, y],
                 fill="toself",
-                fillcolor=ACCENT_SOFT,
-                line=dict(color=ACCENT, width=2),
+                fillcolor="rgba(46,194,126,0.22)",
+                line=dict(color=GREEN, width=2),
                 mode="lines",
                 hoverinfo="skip",
             )
@@ -405,20 +638,24 @@ def estimator_page() -> None:
         goal_fig.add_trace(
             go.Scatter(
                 x=[x], y=[y], mode="markers",
-                marker=dict(size=16, color=DANGER, symbol="x", line=dict(width=2)),
+                marker=dict(size=16, color=RED, symbol="x",
+                            line=dict(width=0, color=RED)),
                 name="Tembakan",
-                hovertemplate=f"x={x:.0f}, y={y:.0f}, peluang {probability:.0%}<extra></extra>",
+                hovertemplate=f"x={x:.0f}, y={y:.0f}, peluang {probability:.0%}<extra></extra>"
             )
         )
         goal_fig.update_layout(
-            **LAYOUT_BASE,
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            hoverlabel=HOVERLABEL,
+            font=dict(family=BODY, color=TEXT_DIM),
             shapes=[
                 dict(type="line", x0=120, y0=36, x1=120, y1=44, line=dict(color="#ffffff", width=5)),
-                dict(type="rect", x0=120, y0=18, x1=114, y1=62, line=dict(color=PITCH_LINE, width=1.4)),
+                dict(type="rect", x0=114, y0=18, x1=120, y1=62, line=dict(color=PITCH_LINE, width=1.4)),
             ],
             height=360,
             margin=dict(l=10, r=10, t=0, b=10),
-            title=dict(text=f"<span style='font-size:12.5px'>Sudut antara dua tiang dari posisi tembakan</span>", font=dict(color="#93a4b5")),
             xaxis=dict(range=[max(60, min(float(x), 118)) - 10, 123.0],
                        showgrid=False, zeroline=False, visible=False,
                        scaleanchor="y", scaleratio=1.0),
@@ -426,7 +663,7 @@ def estimator_page() -> None:
         )
         st.plotly_chart(goal_fig, width="stretch")
 
-    with st.expander("Pahami angkanya", expanded=False):
+    with st.expander("Pahami angkanya"):
         st.markdown(
             "- **Peluang** = estimasi bagian tembakan serupa yang menjadi gol pada "
             "situasi identik, dari puluhan ribu tembakan nyata.\n"
@@ -458,7 +695,7 @@ def _test_split() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
 
 
 def evaluation_page() -> None:
-    page_header("Evaluasi Model")
+    hero("Evaluasi Model")
     artifact = load_model()
     metadata = artifact["metadata"]
     X_test, y_test, sb_xg = _test_split()
@@ -467,15 +704,7 @@ def evaluation_page() -> None:
     if calibrator is not None:
         probabilities = calibrator.predict(probabilities)
 
-    test_matches = metadata["split"]["test_matches"]
-    st.markdown("".join([
-        '<div class="pitchiq-headline"><p>',
-        f'<span class="pitchiq-chip">holdout: {int(test_matches)} match</span>',
-        '<span class="pitchiq-chip">seed berkelompok: 20261029</span>',
-        '<span class="pitchiq-chip">tanpa overlap match</span>',
-        "</p></div>",
-    ]), unsafe_allow_html=True)
-
+    section("1", "Skor holdout", "chart")
     metrics_head = st.columns(4)
     metrics_head[0].metric("Model deployment", "Logistic Regression")
     metrics_head[1].metric("ROC-AUC (test)", f"{metadata['test_metrics']['roc_auc']:.3f}")
@@ -485,7 +714,7 @@ def evaluation_page() -> None:
     left, right = st.columns([1.15, 1], gap="large")
 
     with right:
-        st.markdown("##### Perbandingan model (test set yang sama)")
+        section("2", "Tabel perbandingan", "users")
         comparison = load_csv("model_comparison.csv")
         show = comparison[
             ["model", "test_roc_auc", "test_log_loss", "test_brier",
@@ -538,29 +767,29 @@ def evaluation_page() -> None:
         from sklearn.calibration import calibration_curve
         from sklearn.metrics import roc_curve
 
+        section("3", "Kurva kualitas probabilitas", "chart")
         fig = go.Figure()
         fpr, tpr, _ = roc_curve(y_test, probabilities)
         fig.add_trace(go.Scatter(
             x=fpr, y=tpr, mode="lines", name=artifact["model_name"],
-            line=dict(color=ACCENT, width=2.6),
+            line=dict(color=GREEN, width=2.6),
             hovertemplate="FPR %{x:.2f} · TPR %{y:.2f}<extra></extra>",
         ))
         fpr_sb, tpr_sb, _ = roc_curve(y_test, sb_xg)
         fig.add_trace(go.Scatter(
             x=fpr_sb, y=tpr_sb, mode="lines", name="StatsBomb xG",
-            line=dict(color=BENCH, width=2, dash="dot"),
+            line=dict(color=AMBER, width=2, dash="dot"),
         ))
         fig.add_trace(go.Scatter(
             x=[0, 1], y=[0, 1], mode="lines", name="Acak",
-            line=dict(color=MUTED, width=1.2, dash="dash"),
+            line=dict(color="#5b6b7e", width=1.2, dash="dash"),
         ))
         fig.update_layout(
-            **LAYOUT_BASE,
-            title=dict(text="<span style='font-size:13px'>Kurva ROC (holdout test)</span>",
-                       font=dict(color="#93a4b5")),
-            xaxis=dict(title="False positive rate", range=[0, 1], gridcolor=GRID_DIM, zeroline=False),
-            yaxis=dict(title="True positive rate", range=[0, 1.02], gridcolor=GRID_DIM, zeroline=False),
-            height=400, margin=dict(l=44, r=16, t=36, b=44),
+            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            hoverlabel=HOVERLABEL, font=dict(family=BODY, color=TEXT_DIM),
+            xaxis=dict(title="False positive rate", range=[0, 1], gridcolor="#1a2434", zeroline=False),
+            yaxis=dict(title="True positive rate", range=[0, 1.02], gridcolor="#1a2434", zeroline=False),
+            height=400, margin=dict(l=44, r=16, t=28, b=44),
             legend=dict(font=dict(size=11), bgcolor="rgba(0,0,0,0)"),
         )
         st.plotly_chart(fig, width="stretch")
@@ -570,24 +799,23 @@ def evaluation_page() -> None:
         cal_fig = go.Figure()
         cal_fig.add_trace(go.Scatter(
             x=predicted, y=observed, mode="lines+markers",
-            name=artifact["model_name"], line=dict(color=ACCENT, width=2.2),
+            name=artifact["model_name"], line=dict(color=GREEN, width=2.2),
             marker=dict(size=7),
         ))
         cal_fig.add_trace(go.Scatter(
             x=pred_sb, y=obs_sb, mode="lines+markers", name="StatsBomb xG",
-            line=dict(color=BENCH, width=2, dash="dot"), marker=dict(size=7),
+            line=dict(color=AMBER, width=2, dash="dot"), marker=dict(size=7),
         ))
         cal_fig.add_trace(go.Scatter(
             x=[0, 1], y=[0, 1], mode="lines", name="Kalibrasi sempurna",
-            line=dict(color=MUTED, width=1.2, dash="dash"),
+            line=dict(color="#5b6b7e", width=1.2, dash="dash"),
         ))
         cal_fig.update_layout(
-            **LAYOUT_BASE,
-            title=dict(text="<span style='font-size:13px'>Kurva kalibrasi (10 bin kuantil)</span>",
-                       font=dict(color="#93a4b5")),
-            xaxis=dict(title="Rata-rata xG yang diprediksi", range=[0, 0.5], gridcolor=GRID_DIM, zeroline=False),
-            yaxis=dict(title="Frekuensi gol yang terjadi", range=[0, 0.5], gridcolor=GRID_DIM, zeroline=False),
-            height=400, margin=dict(l=44, r=16, t=36, b=44),
+            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            hoverlabel=HOVERLABEL, font=dict(family=BODY, color=TEXT_DIM),
+            xaxis=dict(title="Rata-rata xG yang diprediksi", range=[0, 0.5], gridcolor="#1a2434", zeroline=False),
+            yaxis=dict(title="Frekuensi gol yang terjadi", range=[0, 0.5], gridcolor="#1a2434", zeroline=False),
+            height=400, margin=dict(l=44, r=16, t=28, b=44),
         )
         st.plotly_chart(cal_fig, width="stretch")
 
@@ -610,10 +838,11 @@ def evaluation_page() -> None:
 
 
 def insights_page() -> None:
-    page_header("Insight Pemain & Tim")
+    hero("Insight Pemain & Tim")
     player_stats = load_csv("player_summary.csv").set_index("player")
     team_stats = load_csv("team_summary.csv")
 
+    section("1", "Kontrol sampel", "target")
     control, _ = st.columns([1, 1.4])
     with control:
         min_shots = st.slider(
@@ -626,6 +855,7 @@ def insights_page() -> None:
 
     qualified = player_stats[player_stats["shots"] >= min_shots]
 
+    section("2", "Pemain & penyedia peluang", "users")
     left, right = st.columns(2, gap="large")
 
     with left:
@@ -712,7 +942,7 @@ def insights_page() -> None:
             st.markdown("##### Pemilihan tembakan per tim")
             st.image(str(zone_fig))
 
-    st.markdown("##### Zona paling produktif")
+    section("3", "Zona paling produktif", "zone")
     zone_fig = FIGURES_DIR / "fig9_zone_map.png"
     left_zone, right_zone = st.columns([1.4, 1], gap="large")
     with left_zone:
@@ -734,13 +964,39 @@ def insights_page() -> None:
         )
         st.caption("Zona band lateral yang mirip dipasangkan sejak audit; baris di atas adalah pasangan terbaik setelah digabung.")
 
-    with st.expander("📋 Rekomendasi untuk pelatih (dari model, seluruh label asumsi)", expanded=True):
+    with st.expander("Rekomendasi untuk pelatih (dari model, seluruh label asumsi)", expanded=True):
         st.markdown(load_markdown("coach_recommendations.md"))
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Sidebar, artifact check, routing
 # ---------------------------------------------------------------------------
+
+
+def sidebar() -> None:
+    """Branded navigation rail."""
+    logo = ASSETS_DIR / "logo.svg"
+    logo_html = (
+        f'<span class="mark"><img src="data:image/svg+xml;base64,'
+        f'{__import__("base64").b64encode(logo.read_bytes()).decode()}" width="34" height="34" alt=""></span>'
+        if logo.exists() else '<span class="mark"></span>'
+    )
+    st.sidebar.markdown(
+        f"""<div class="piq-brand">{logo_html}
+<div><div class="name">PITCHIQ</div><div class="tag">xG Intelligence</div></div>
+</div>""",
+        unsafe_allow_html=True,
+    )
+    page = st.sidebar.selectbox("Menu", list(page_titles.keys()))
+    st.sidebar.divider()
+    st.sidebar.markdown(
+        f"""<a class="piq-pill" href="{REPO_URL}" target="_blank">{icon('github', 14)} REPO GITHUB</a>
+<a class="piq-pill" href="{DEMO_URL}" target="_blank">{icon('arrow', 13)} DEMO LIVE</a>""",
+        unsafe_allow_html=True,
+    )
+    st.sidebar.divider()
+    st.sidebar.caption(CREDIT)
+    return page
 
 
 def artifacts_fresh(meta_path: Path) -> bool:
@@ -776,49 +1032,26 @@ def artifacts_fresh(meta_path: Path) -> bool:
             FIGURES_DIR / "fig10_team_shot_selection.png",
             FIGURES_DIR / "fig11_player_finishing.png",
         ]
-        artifacts_current = all(
+        return all(
             path.exists() and path.stat().st_mtime >= built_at
             for path in required_outputs
         )
     except (KeyError, TypeError, ValueError, OSError):
         return False
-    return artifacts_current
 
 
 def main() -> None:
     st.set_page_config(
         page_title="PitchIQ — Expected Goals Intelligence",
-        page_icon="⚽",
+        page_icon=":material/sports_soccer:",
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    st.markdown(CSS, unsafe_allow_html=True)
+    global_css()
 
-    st.sidebar.markdown(
-        '<div class="pitchiq-brand"><h2>⚽ PitchIQ</h2>'
-        "<p>Expected Goals Intelligence</p></div>",
-        unsafe_allow_html=True,
-    )
-    menu = st.sidebar.selectbox("Menu", list(page_titles.keys()))
-    st.sidebar.divider()
-    st.sidebar.caption(page_subtitles[menu])
-    st.sidebar.divider()
-    st.sidebar.markdown(
-        f'<span class="pitchiq-chip">12.241 tembakan</span>'
-        f'<span class="pitchiq-chip">479 match</span>'
-        f'<span class="pitchiq-chip">3 kompetisi</span>',
-        unsafe_allow_html=True,
-    )
-    st.sidebar.markdown(
-        f"🔗 **[Repositori GitHub]({REPO_URL})**<br>"
-        f"▶️ **[Demo live]({DEMO_URL})**",
-        unsafe_allow_html=True,
-    )
-    st.sidebar.divider()
-    st.sidebar.caption(CREDIT)
+    page = sidebar()
 
-    page = menu
-    page_header(page)
+    # Poster hero is rendered inside each page function, right before content.
 
     # Artifact integrity: warn if model/reports do not match the audited
     # protocol (regeneration missing, or files older than the model build).
