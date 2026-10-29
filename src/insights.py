@@ -28,7 +28,7 @@ import pandas as pd
 from sklearn.inspection import permutation_importance
 from sklearn.model_selection import GroupShuffleSplit
 
-from .config import DATA_DIR, FEATURES_PARQUET, FIGURES_DIR, REPORTS_DIR, SEED
+from .config import DATA_DIR, FEATURES_PARQUET, FIGURES_DIR, REPORTS_DIR, SEED, TEST_SPLIT_SEED
 from .features import (
     BOOLEAN_FEATURES,
     CATEGORICAL_FEATURES,
@@ -40,25 +40,45 @@ from .train import TEST_SIZE, load_artifact, predict_probabilities
 MIN_SHOTS = 15           # minimum sample for player rankings
 MIN_ASSISTS = 10         # minimum sample for creator rankings
 LOW_QUALITY_XG = 0.05    # threshold for "low-quality" shots
-LONG_SHOT_METERS = 30    # distance beyond which a shot counts as a long shot
+LONG_SHOT_UNITS = 30    # StatsBomb pitch-coordinate units; not labelled as metres
 SHAP_DISPLAY_ROWS = 2000
 CREATORS_PARQUET = DATA_DIR / "creators.parquet"
 
 CREDIT_NOTE = "Data: StatsBomb Open Data (via statsbombpy)"
 
 
+def estimate_replacement_xg_gain(
+    shot_count: int,
+    mean_current_xg: float,
+    replacement_share: float = 1.0 / 3.0,
+    replacement_xg: float = 0.10,
+) -> float:
+    """Estimate an assumption-based xG uplift when some low-xG shots are replaced.
+
+    This is a scenario calculator, not a causal estimate. It assumes each
+    replaced shot is substituted one-for-one by a chance with ``replacement_xg``.
+    """
+    if shot_count < 0:
+        raise ValueError("shot_count must be non-negative")
+    if not 0.0 <= replacement_share <= 1.0:
+        raise ValueError("replacement_share must be between 0 and 1")
+    if not 0.0 <= mean_current_xg <= 1.0 or not 0.0 <= replacement_xg <= 1.0:
+        raise ValueError("xG values must lie between 0 and 1")
+    return float(shot_count * replacement_share * max(0.0, replacement_xg - mean_current_xg))
+
+
 FACTOR_EXPLAIN: dict[str, str] = {
     "distance": "Closer to goal = more of the goal is open and the keeper has less time. This is the single biggest driver.",
     "angle_deg": "A wide angle means the shooter sees more goal between the posts; tight angles are almost never worth taking.",
     "body_part": "Contact type matters mostly through where it happens - headers and volleys come from hard, crowded positions.",
-    "n_defenders_cone": "Defenders standing between the shot and the goal block it; one extra defender measurably lowers quality.",
-    "nearest_defender_dist": "Time and space: the closer the nearest defender, the worse the shot.",
-    "gk_off_line": "A keeper caught off his line concedes easier finishes.",
-    "gk_y_offset": "A keeper shaded to one post leaves the other side open.",
-    "first_time": "First-time finishes are harder to place than controlled strikes.",
+    "n_defenders_cone": "Counts defenders between shooter and goal; interpret alongside the shot location and freeze-frame availability.",
+    "nearest_defender_dist": "Distance to the nearest defender is a proxy for space, not a complete measure of pressure.",
+    "gk_off_line": "Goalkeeper distance from the goal line changes the visible target, but its effect depends on angle and shot context.",
+    "gk_y_offset": "Goalkeeper lateral position may open one side; the effect depends on shot angle and placement.",
+    "first_time": "First-time shots arise in different contexts; the association is not an isolated causal effect.",
     "shot_type": "Free kicks and open play behave differently; penalties are handled separately.",
-    "play_pattern": "Counter attacks produce far cleaner looks than slow build-ups.",
-    "under_pressure": "Shooting while pressured cuts shot quality roughly in half.",
+    "play_pattern": "Shot quality can differ by play pattern; location and game state may explain part of the association.",
+    "under_pressure": "Pressure is a marker of shot context; the observed association alone does not establish a causal effect.",
     "open_goal": "An empty net is near-certain; the model flags it almost as a sure goal.",
     "one_on_one": "A clean one-on-one much more than doubles typical shot quality.",
     "minute": "Game state and fatigue add a small effect late in games.",
@@ -91,7 +111,7 @@ def load_scored() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, dic
 
 def grouped_split(X: pd.DataFrame, y: pd.Series, groups: pd.Series) -> tuple[np.ndarray, np.ndarray]:
     """Reproduce the grouped 80/20 split used in training (same seed)."""
-    splitter = GroupShuffleSplit(n_splits=1, test_size=TEST_SIZE, random_state=SEED)
+    splitter = GroupShuffleSplit(n_splits=1, test_size=TEST_SIZE, random_state=TEST_SPLIT_SEED)
     train_index, test_index = next(splitter.split(X, y, groups))
     return train_index, test_index
 
@@ -247,11 +267,20 @@ def permutation_top_features(
     n_repeats: int = 10,
 ) -> pd.DataFrame:
     """Permutation importance on the held-out grouped test matches."""
+    calibrator = artifact.get("calibrator")
+
+    def calibrated_neg_brier(estimator: Any, matrix: pd.DataFrame, target: pd.Series) -> float:
+        """Score the actual deployed probability, including optional calibration."""
+        probabilities = estimator.predict_proba(matrix)[:, 1]
+        if calibrator is not None:
+            probabilities = calibrator.predict(probabilities)
+        return -float(np.mean((np.asarray(target, dtype=float) - probabilities) ** 2))
+
     result = permutation_importance(
         artifact["pipeline"],
         X_test,
         y_test,
-        scoring="neg_brier_score",
+        scoring=calibrated_neg_brier,
         n_repeats=n_repeats,
         random_state=SEED,
         n_jobs=4,
@@ -289,10 +318,14 @@ def permutation_top_features(
 def player_table(
     frame: pd.DataFrame, creators: pd.DataFrame | None
 ) -> pd.DataFrame:
-    """Per-player shot, xG and finishing stats (non-penalty shots only)."""
-    stats = frame.groupby("player").agg(
-        team=("team", lambda team: team.mode().iloc[0]),
-        competition=("competition", "first"),
+    """Aggregate player stats separately for each team and competition.
+
+    A player who appears for a club and a national team receives separate rows;
+    this avoids combining incompatible samples and then labelling the sum as one
+    team's performance.
+    """
+    scope = ["player", "team", "competition"]
+    stats = frame.groupby(scope, dropna=False).agg(
         shots=("event_id", "size"),
         goals=("is_goal", "sum"),
         xg_pitchiq=("pitchiq_xg", "sum"),
@@ -312,23 +345,45 @@ def player_table(
             how="inner",
             left_on=["match_id", "event_id"],
             right_on=["match_id", "shot_event_id"],
+            validate="one_to_one",
         )
-        creator_stats = assisted.groupby("creator").agg(
+        # The assisting creator belongs to the same team/competition as the
+        # shot. Aggregate within that scope so club and national-team totals do
+        # not leak into one another through a name-only join.
+        creator_stats = assisted.groupby(
+            ["creator", "team", "competition"], dropna=False
+        ).agg(
             assists=("event_id", "size"),
             assisted_goals=("is_goal", "sum"),
             assisted_xg=("pitchiq_xg", "sum"),
         )
-        stats = stats.join(creator_stats, how="left")
+        creator_stats.index = creator_stats.index.set_names(scope)
+        # Outer join keeps creators who have key passes linked to shots even if
+        # they did not themselves take a shot in this dataset slice.
+        stats = stats.join(creator_stats, how="outer")
         stats[["assists", "assisted_goals", "assisted_xg"]] = stats[
             ["assists", "assisted_goals", "assisted_xg"]
         ].fillna(0)
+        stats[["shots", "goals", "xg_pitchiq", "xg_statsbomb"]] = stats[
+            ["shots", "goals", "xg_pitchiq", "xg_statsbomb"]
+        ].fillna(0)
+        stats["xg_per_shot"] = stats["xg_pitchiq"] / stats["shots"].replace(0, np.nan)
+        stats["goals_minus_xg"] = stats["goals"] - stats["xg_pitchiq"]
+        stats["sample_note"] = np.where(
+            stats["shots"] < 30,
+            "small sample - goals vs xG is noisy",
+            "",
+        )
     else:
         stats["assists"] = np.nan
         stats["assisted_goals"] = np.nan
         stats["assisted_xg"] = np.nan
 
-    return stats.sort_values(["shots", "xg_pitchiq"], ascending=False)
-
+    return (
+        stats.reset_index()
+        .set_index("player")
+        .sort_values(["shots", "xg_pitchiq"], ascending=False)
+    )
 
 def top_players_markdown(player_stats: pd.DataFrame) -> str:
     """Markdown rankings used in reports/insights_summary.md."""
@@ -342,10 +397,10 @@ def top_players_markdown(player_stats: pd.DataFrame) -> str:
     quality = qualified.sort_values("xg_per_shot", ascending=False).head(10)
 
     def _players(table: pd.DataFrame) -> str:
-        header = "| player | team | shots | xG | xG/shot | goals | goals-xG |"
-        line = "|---|---|---|---|---|---|---|"
+        header = "| player | team | competition | shots | xG | xG/shot | goals | goals-xG |"
+        line = "|---|---|---|---|---|---|---|---|"
         rows = [
-            f"| {player} | {row['team']} | {int(row['shots'])} | "
+            f"| {player} | {row['team']} | {row['competition']} | {int(row['shots'])} | "
             f"{row['xg_pitchiq']:.2f} | {row['xg_per_shot']:.3f} | "
             f"{int(row['goals'])} | {row['goals_minus_xg']:+.2f} |"
             for player, row in table.iterrows()
@@ -353,10 +408,10 @@ def top_players_markdown(player_stats: pd.DataFrame) -> str:
         return "\n".join([header, line, *rows])
 
     def _creators(table: pd.DataFrame) -> str:
-        header = "| creator | team | assisted shots | assisted goals | assisted xG |"
-        line = "|---|---|---|---|---|"
+        header = "| creator | team | competition | assisted shots | assisted goals | assisted xG |"
+        line = "|---|---|---|---|---|---|"
         rows = [
-            f"| {player} | {row['team']} | "
+            f"| {player} | {row['team']} | {row['competition']} | "
             f"{int(row['assists'])} | {int(row['assisted_goals'])} | "
             f"{row['assisted_xg']:.2f} |"
             for player, row in table.iterrows()
@@ -392,7 +447,7 @@ def plot_player_finishing(player_stats: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(7.6, 5.6))
     colors = ["#e76f51" if value < 0 else "#2a9d8f" for value in plot_frame["goals_minus_xg"]]
     labels = [
-        f"{player} ({int(row['shots'])} shots)"
+        f"{player} — {row['team']} / {row['competition']} ({int(row['shots'])} shots)"
         for player, row in plot_frame.iterrows()
     ]
     ax.barh(labels, plot_frame["goals_minus_xg"], color=colors)
@@ -421,7 +476,7 @@ def team_table(frame: pd.DataFrame, league_xg_per_shot: float) -> pd.DataFrame:
     """xG for/against and shot-selection quality per team."""
     low_quality = frame.assign(
         low=(frame["pitchiq_xg"] < LOW_QUALITY_XG).astype(float),
-        long=(frame["distance"] > LONG_SHOT_METERS).astype(float),
+        long=(frame["distance"] > LONG_SHOT_UNITS).astype(float),
     )
 
     for_side = low_quality.groupby("team").agg(
@@ -517,11 +572,20 @@ def zone_table(frame: pd.DataFrame) -> pd.DataFrame:
     return table
 
 
+def zone_shot_share_matrix(matrix_counts: pd.DataFrame) -> pd.DataFrame:
+    """Normalize sparse zone counts while safely ignoring empty-zone NaNs."""
+    total_shots = float(np.nansum(matrix_counts.to_numpy(dtype=float)))
+    if not np.isfinite(total_shots) or total_shots <= 0:
+        return matrix_counts.astype(float) * np.nan
+    return matrix_counts.astype(float) / total_shots
+
+
 def plot_zone_map(zone_stats: pd.DataFrame, league_xg_per_shot: float) -> None:
     """Two-panel zone view: where shots come from and what they convert at."""
     matrix_n = zone_stats.pivot(index="y_band", columns="x_band", values="shots")
     matrix_c = zone_stats.pivot(index="y_band", columns="x_band", values="mean_pitchiq_xg")
-    matrix_share = matrix_n.div(matrix_n.values.sum())
+    # A numpy sum of a sparse pivot propagates any NaN and made the whole panel blank.
+    matrix_share = zone_shot_share_matrix(matrix_n)
 
     fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.6))
     for ax, matrix, cmap, title in (
@@ -594,22 +658,37 @@ def build_recommendations(
     eligible = team_stats[team_stats["shots_for"] >= 100]
 
     low = eligible.sort_values("low_quality_share", ascending=False).iloc[0]
+    low_attempts = frame[
+        (frame["team"] == low.name) & (frame["pitchiq_xg"] < LOW_QUALITY_XG)
+    ]
+    low_attempt_count = len(low_attempts)
+    mean_low_xg = (
+        float(low_attempts["pitchiq_xg"].mean()) if low_attempt_count else 0.0
+    )
+    replacement_share = 1.0 / 3.0
+    replacement_target_xg = 0.10
+    estimated_gain = estimate_replacement_xg_gain(
+        low_attempt_count,
+        mean_low_xg,
+        replacement_share=replacement_share,
+        replacement_xg=replacement_target_xg,
+    )
     recommend.append(
         f"{low.name} take {low['low_quality_share']:.0%} of their shots below "
-        f"{LOW_QUALITY_XG} xG (their PitchIQ xG/shot {low['xg_per_shot_for']:.3f} "
-        f"vs league {league_xg_per_shot:.3f}). If just one in three of those "
-        "hopeless attempts were replaced with a medium-quality (~0.10 xG) look, "
-        f"that alone adds about "
-        f"{(low['low_quality_share'] * low['shots_for'] * 0.0267):.1f} xG per "
-        "season. Instruction: fewer low-probability shots, more ball "
-        "progression into the box."
+        f"{LOW_QUALITY_XG} xG (PitchIQ xG/shot {low['xg_per_shot_for']:.3f} "
+        f"vs dataset mean {league_xg_per_shot:.3f}). Scenario, not a causal "
+        f"forecast: replacing one-third of these {low_attempt_count} shots "
+        f"(mean current xG {mean_low_xg:.3f}) with chances rated {replacement_target_xg:.2f} "
+        f"xG would add about +{estimated_gain:.1f} expected goals if other factors "
+        "stayed constant. Coaching hypothesis: look for better progression into "
+        "the box rather than treating low xG alone as proof a shot was a mistake."
     )
 
     long_shots = eligible.drop(index=low.name)
     if not long_shots.empty:
         shooter = long_shots.sort_values("long_shot_share", ascending=False).iloc[0]
         long_attempt = frame[
-            (frame["team"] == shooter.name) & (frame["distance"] > LONG_SHOT_METERS)
+            (frame["team"] == shooter.name) & (frame["distance"] > LONG_SHOT_UNITS)
         ]
         n_long = len(long_attempt)
         long_conversion = (
@@ -619,12 +698,13 @@ def build_recommendations(
             float(long_attempt["pitchiq_xg"].mean()) if n_long else float("nan")
         )
         recommend.append(
-            f"{shooter.name} shoot from {LONG_SHOT_METERS}+ units out for "
-            f"{shooter['long_shot_share']:.0%} of their attempts "
-            f"({int(n_long)} shots: xG/shot {long_xg:.3f}, conversion "
-            f"{long_conversion:.1%}). Their xG difference for vs against is "
-            f"{shooter['xg_diff']:+.2f}. Instruction: keep long shots as a "
-            "rebound option only, not a first choice."
+            f"{shooter.name} attempt shots from {LONG_SHOT_UNITS}+ StatsBomb "
+            f"pitch-coordinate units on {shooter['long_shot_share']:.0%} of "
+            f"their attempts ({int(n_long)} shots: xG/shot {long_xg:.3f}, "
+            f"conversion {long_conversion:.1%}). Their xG difference for vs "
+            f"against is {shooter['xg_diff']:+.2f}. Coaching hypothesis: review "
+            "whether progression or a pass creates a better option in these "
+            "situations; low xG alone does not prove a shot was a mistake."
         )
 
     patterns = context["play_pattern"]
@@ -637,35 +717,54 @@ def build_recommendations(
         recommend.append(
             f"'{best['play_pattern']}' shots average {best['mean_pitchiq_xg']:.3f} xG "
             f"(conversion {best['conversion']:.1%}) vs {base_xg:.3f} for regular "
-            f"play. Increase tempo and shots out of this pattern: "
-            f"{int(best['shots'])} shots now, each extra 20 shots in this "
-            f"pattern is approximately +{20 * best['mean_pitchiq_xg']:.2f} xG."
+            f"play, across {int(best['shots'])} observed shots. This association "
+            "is descriptive—not proof that the pattern or tempo causes better chances; "
+            "shot location and game state may explain part of the gap. Review the "
+            "transition clips before prescribing a tactical change."
         )
 
     in_box = zone_stats[
         zone_stats["x_band"].isin(["100-110", "110+"])
-        & (zone_stats["shots"] >= 40)
-    ]
+    ].copy()
     if not in_box.empty:
-        best_zone = in_box.sort_values("mean_pitchiq_xg", ascending=False).iloc[0]
-        share = best_zone["shots"] / zone_stats["shots"].sum()
-        recommend.append(
-            f"Inside the attacking bands, the band {best_zone['x_band']} / "
-            f"{best_zone['y_band']} is the highest-value zone (mean xG "
-            f"{best_zone['mean_pitchiq_xg']:.3f}, conversion "
-            f"{best_zone['conversion']:.1%}) but only takes {share:.1%} of "
-            "all shots. Drill a higher share of entries into that corridor "
-            "before shooting."
+        # Pair mirrored y-bands around the goal centre. Reporting only y=20–40
+        # makes one side look under-used even though y=40–60 is its mirror.
+        in_box["lateral_band"] = in_box["y_band"].astype(str).map(
+            {"y0-20": "wide", "60-80": "wide", "20-40": "inside channel", "40-60": "inside channel"}
         )
+        in_box = in_box.dropna(subset=["lateral_band"]).copy()
+        in_box["xg_sum"] = in_box["mean_pitchiq_xg"] * in_box["shots"]
+        paired = in_box.groupby(["x_band", "lateral_band"], observed=True).agg(
+            shots=("shots", "sum"),
+            goals=("goals", "sum"),
+            xg_sum=("xg_sum", "sum"),
+        ).reset_index()
+        paired["mean_pitchiq_xg"] = paired["xg_sum"] / paired["shots"]
+        paired["conversion"] = paired["goals"] / paired["shots"]
+        paired = paired[paired["shots"] >= 40]
+        if not paired.empty:
+            best_zone = paired.sort_values("mean_pitchiq_xg", ascending=False).iloc[0]
+            share = best_zone["shots"] / zone_stats["shots"].sum()
+            recommend.append(
+                f"The attacking band {best_zone['x_band']} / {best_zone['lateral_band']} "
+                f"(mirrored y-bands grouped together) has the highest mean xG among "
+                f"qualified paired zones: {best_zone['mean_pitchiq_xg']:.3f} "
+                f"(conversion {best_zone['conversion']:.1%}; {int(best_zone['shots'])} "
+                f"shots, {share:.1%} of all shots). Treat this as a location pattern "
+                "to review on video, not proof that forcing shots into that band will "
+                "improve outcomes."
+            )
 
     qualified = player_stats[player_stats["shots"] >= MIN_SHOTS]
     finisher = qualified.sort_values("goals_minus_xg", ascending=False).iloc[0]
     recommend.append(
-        f"{finisher.name} has {int(finisher['goals'])} goals on "
-        f"{finisher['xg_pitchiq']:.2f} xG ({int(finisher['shots'])} shots, "
-        f"{finisher['goals_minus_xg']:+.2f} vs expectation, "
-        f"{finisher['xg_per_shot']:.3f} xG/shot). Design volume for this "
-        "finisher; if shots can be steered to him, expected output rises."
+        f"{finisher.name} ({finisher['team']}, {finisher['competition']}) "
+        f"recorded {int(finisher['goals'])} goals on "
+        f"{finisher['xg_pitchiq']:.2f} PitchIQ xG ({int(finisher['shots'])} shots, "
+        f"{finisher['goals_minus_xg']:+.2f} goals minus xG, "
+        f"{finisher['xg_per_shot']:.3f} xG/shot). This is an observed residual, "
+        "not proof it will persist; validate on a larger or later sample before "
+        "treating it as repeatable finishing skill."
     )
 
     pressure = context["under_pressure"]
@@ -677,9 +776,9 @@ def build_recommendations(
                 f"Shots under pressure average {pressed['mean_pitchiq_xg'].iloc[0]:.3f} "
                 f"xG/shot vs {free['mean_pitchiq_xg'].iloc[0]:.3f} when not "
                 f"(across {int(pressed['shots'].iloc[0]):,} vs "
-                f"{int(free['shots'].iloc[0]):,} shots). One extra pass to "
-                "eliminate the press before shooting is usually worth more "
-                "than the shot itself."
+                f"{int(free['shots'].iloc[0]):,} shots). Review clips for "
+                "situations where an extra pass was available, but do not infer "
+                "that passing would always have improved the chance."
             )
     return recommend[:5]
 

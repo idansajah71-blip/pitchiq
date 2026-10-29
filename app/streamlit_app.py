@@ -9,7 +9,9 @@ Run from the project root:  streamlit run app/streamlit_app.py
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.config import FEATURES_PARQUET, FIGURES_DIR, MODELS_DIR, REPORTS_DIR, SEED
+from src.config import DATA_DIR, FEATURES_PARQUET, FIGURES_DIR, MODELS_DIR, REPORTS_DIR, SEED, TEST_SPLIT_SEED
 from src.features import FEATURE_COLUMNS, distance_to_goal, shot_angle_deg
 
 MIN_SHOTS_DEFAULT = 15
@@ -149,7 +151,10 @@ def shot_map_page() -> None:
     metrics = st.columns(3)
     metrics[0].metric("Tembakan ditampilkan", f"{len(view):,}")
     metrics[1].metric("Gol", f"{int(view['is_goal'].sum()):,}")
-    metrics[2].metric("Rata-rata xG", f"{view['xg_display'].mean():.3f}")
+    mean_label = "Rata-rata xG tampilan" if show_penalties else "Rata-rata PitchIQ xG"
+    metrics[2].metric(mean_label, f"{view['xg_display'].mean():.3f}")
+    if show_penalties:
+        st.caption("Catatan: xG untuk penalti berasal dari benchmark StatsBomb, sedangkan non-penalti memakai PitchIQ. Rata-rata gabungan di atas bukan satu model yang homogen.")
 
     import plotly.graph_objects as go
 
@@ -260,7 +265,7 @@ def estimator_page() -> None:
 
     left, right = st.columns([1, 1.4], gap="large")
     with left:
-        x = st.slider("Kedalaman tembakan (x: 0 = garis tengah, 120 = garis gawang)", 0, 119, 110)
+        x = st.slider("Kedalaman tembakan (x: 60 = garis tengah, 120 = gawang lawan)", 0, 119, 110)
         y = st.slider("Posisi samping (y: 40 = tengah gawang)", 0, 80, 40)
         body_part = st.selectbox("Bagian tubuh", BODY_PARTS)
         shot_type = st.selectbox("Tipe tembakan", SHOT_TYPES)
@@ -341,7 +346,7 @@ def _test_split() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     y = features["is_goal"].astype(int)
     mask = ~features["is_penalty"].fillna(False)
     X, y, groups = X.loc[mask], y.loc[mask], features.loc[mask, "match_id"]
-    splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=SEED)
+    splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=TEST_SPLIT_SEED)
     train_index, test_index = next(splitter.split(X, y, groups))
     return X.iloc[test_index], y.iloc[test_index], features.loc[X.index[test_index], "xg_statsbomb"]
 
@@ -351,6 +356,9 @@ def evaluation_page() -> None:
     metadata = artifact["metadata"]
     X_test, y_test, sb_xg = _test_split()
     probabilities = artifact["pipeline"].predict_proba(X_test)[:, 1]
+    calibrator = artifact.get("calibrator")
+    if calibrator is not None:
+        probabilities = calibrator.predict(probabilities)
 
     metrics_head = st.columns(4)
     metrics_head[0].metric("Model terbaik", artifact["model_name"].replace(" +", " (+)"))
@@ -375,7 +383,8 @@ def evaluation_page() -> None:
         st.dataframe(show, use_container_width=True, hide_index=True)
         st.caption(
             "Benchmark StatsBomb xG ikut diuji pada data yang sama untuk "
-            "konteks, bukan sebagai lawan pelatihan."
+            "konteks, bukan sebagai lawan pelatihan. CV untuk model pohon yang "
+            "parameternya dituning adalah eksploratif karena belum memakai nested CV."
         )
 
         left_ablation, right_ablation = st.columns(2)
@@ -486,10 +495,10 @@ def insights_page() -> None:
         else:
             ranked = qualified.sort_values("xg_pitchiq", ascending=False)
         table = ranked.head(15)[
-            ["team", "shots", "goals", "xg_pitchiq", "xg_per_shot", "goals_minus_xg"]
+            ["team", "competition", "shots", "goals", "xg_pitchiq", "xg_per_shot", "goals_minus_xg"]
         ].copy()
         table.columns = [
-            "Tim", "Tembakan", "Gol", "Total xG", "xG/tembakan", "Gol - xG"
+            "Tim / cakupan", "Kompetisi / cakupan", "Tembakan", "Gol", "Total xG", "xG/tembakan", "Gol - xG"
         ]
         st.dataframe(
             table.round(3),
@@ -497,15 +506,15 @@ def insights_page() -> None:
             hide_index=True,
         )
 
-        st.markdown(f"#### Penyedia peluang (assist) — penata peluang min {MIN_ASSISTS} assisted shots")
+        st.markdown(f"#### Penyedia peluang (key pass ke tembakan, bukan total assist resmi) — minimum {MIN_ASSISTS} assisted shots")
         if "assists" in player_stats.columns and player_stats["assists"].notna().any():
             creators = (
                 player_stats[player_stats["assists"] >= MIN_ASSISTS]
                 .sort_values("assisted_xg", ascending=False)
                 .head(10)
             )
-            creator_table = creators[["team", "assists", "assisted_goals", "assisted_xg"]].copy()
-            creator_table.columns = ["Tim", "Assisted shots", "Gol dari initiatif", "Total xG assist"]
+            creator_table = creators[["team", "competition", "assists", "assisted_goals", "assisted_xg"]].copy()
+            creator_table.columns = ["Tim / cakupan", "Kompetisi / cakupan", "Assisted shots", "Gol dari peluang", "Total xG assist"]
             st.dataframe(creator_table.round(2), use_container_width=True, hide_index=True)
         else:
             st.info("Data creators belum dibangun. Jalankan `python -m src.creators`.")
@@ -565,6 +574,56 @@ def main() -> None:
         "(12 ribu tembakan, 479 match) ke model dan rekomendasi."
     )
     st.title(page_titles[page])
+
+    # The ZIP contains report/model artifacts from the pre-audit workflow.
+    # Make this visible in the UI until the complete pipeline regenerates them.
+    metadata_path = MODELS_DIR / "metadata.json"
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        metadata = {}
+    artifacts_current = False
+    if (
+        metadata.get("audit_protocol_version") == "2026-10-29-v1"
+        and metadata.get("split", {}).get("test_split_seed") == TEST_SPLIT_SEED
+    ):
+        try:
+            built_at_value = metadata.get(
+                "pipeline_started_at_utc", metadata["trained_at_utc"]
+            )
+            built_at = datetime.fromisoformat(built_at_value).timestamp()
+            required_outputs = [
+                MODELS_DIR / "best_model.joblib",
+                DATA_DIR / "creators.parquet",
+                REPORTS_DIR / "logreg_ablation.csv",
+                REPORTS_DIR / "model_comparison.csv",
+                REPORTS_DIR / "calibration_comparison.csv",
+                REPORTS_DIR / "player_summary.csv",
+                REPORTS_DIR / "team_summary.csv",
+                REPORTS_DIR / "zone_summary.csv",
+                REPORTS_DIR / "coach_recommendations.md",
+                REPORTS_DIR / "insights_summary.md",
+                REPORTS_DIR / "permutation_importance.csv",
+                REPORTS_DIR / "shap_top_factors.csv",
+                FIGURES_DIR / "fig5_calibration.png",
+                FIGURES_DIR / "fig9_zone_map.png",
+                FIGURES_DIR / "fig10_team_shot_selection.png",
+                FIGURES_DIR / "fig11_player_finishing.png",
+            ]
+            artifacts_current = all(
+                path.exists() and path.stat().st_mtime >= built_at
+                for path in required_outputs
+            )
+        except (KeyError, TypeError, ValueError, OSError):
+            artifacts_current = False
+    if not artifacts_current:
+        st.warning(
+            "Artefak model dan/atau laporan masih berasal dari pipeline sebelum audit "
+            "atau belum dibuat ulang bersama-sama. Jangan kutip metrik atau "
+            "rekomendasi numeriknya sebagai hasil final. Jalankan pipeline lengkap "
+            "(`data`, `features`, `eda`, `train`, `creators`, `insights`), lalu "
+            "mulai ulang aplikasi."
+        )
 
     if page == "Shot Map":
         shot_map_page()

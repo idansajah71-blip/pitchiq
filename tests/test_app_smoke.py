@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pathlib
 
-from streamlit.testing.v1 import AppTest
+import pytest
+
+AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "streamlit_app.py"
@@ -28,15 +30,22 @@ def test_all_pages_render_without_exception() -> None:
         assert not app.exception, f"{page} failed: {app.exception}"
 
 
-def test_estimator_widget_changes_hint_probability() -> None:
-    """Moving the estimator slider must re-run cleanly (error informal handling)."""
+def test_estimator_slider_updates_distance_and_renders_cleanly() -> None:
+    """Moving the shot location updates the visible distance output."""
     app = AppTest.from_file(str(APP), default_timeout=600)
     app.run()
     nav = app.sidebar.selectbox[0]
     nav.set_value("xG Estimator")
     app.run()
     assert not app.exception
+    initial_distance = next(
+        metric.value for metric in app.metric if metric.label == "Jarak ke gawang"
+    )
     sliders = app.slider  # depth slider is the first slider on the page
     sliders[0].set_value(104)
     app.run()
     assert not app.exception
+    updated_distance = next(
+        metric.value for metric in app.metric if metric.label == "Jarak ke gawang"
+    )
+    assert initial_distance != updated_distance

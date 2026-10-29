@@ -7,16 +7,16 @@ Video screen-record aplikasi, bahasa lisan Indonesia campur istilah teknis, ~350
 **(0:00–0:20) Masalah — halaman Shot Map**
 
 "Di lembar skor, semua tembakan dicatat sama: 'satu shot'. Padahal
-tembakan dari 40 yard betul-betul berbeda dengan tap-in satu sentuhan — dan
-selisihnya puluhan kali lipat. PitchIQ mengubah angka mentah itu menjadi
+tembakan dari 40 yard bisa punya peluang yang sangat berbeda dengan tap-in
+satu sentuhan. PitchIQ mengubah angka mentah itu menjadi
 keputusan yang bisa dilakukan pelatih."
 
 **(0:20–0:55) Data — halaman Evaluasi Model**
 
 "Kami memakai 12 ribu tembakan nyata dari StatsBomb Open Data: Premier League
 2015/16, La Liga 2019/20, dan Piala Dunia 2022 — total 479 pertandingan. Setiap
-tembakan punya posisi, bagian tubuh, tekanan lawan, dan yang paling penting:
-freeze-frame, yaitu posisi bek dan kiper persis sebelum bola ditendang. Yang
+tembakan punya posisi, bagian tubuh, dan konteks tekanan. Pada mayoritas shot,
+freeze-frame juga mencatat posisi bek dan kiper saat tembakan dilakukan. Yang
 tidak kami pakai sebagai input adalah informasi yang muncul setelah tembakan:
 hasil akhir, end location, atau angka xG bawaan dari StatsBomb. Split kami
 dikelompokkan per pertandingan supaya tidak ada kebocoran antara training dan
@@ -24,13 +24,13 @@ testing."
 
 **(0:55–1:30) Model — kurva kalibrasi**
 
-"Model pilihan kami regresi logistik yang transparan: ROC-AUC 0.772, hanya
-sedikit di bawah XGBoost yang 0.781 — jadi kemampuan membedakan tembakan bagus
-dan buruk kira-kira dua dari tiga kali. Kami memilih versi transparan karena
-pelatih perlu tahu alasan di balik angkanya. Yang kami pamerkan bukan akurasi,
-melainkan kalibrasi: tembakan yang model nilai 25 persen memang masuk sekitar
-seperempat waktu. Kalibrasi yang jujur lebih berharga
-daripada angka yang terlihat bagus tapi tidak bisa dipakai."
+"Model deployment kami adalah regresi logistik yang transparan. Dashboard
+membandingkan ROC-AUC, log loss, Brier score, dan kalibrasi dengan eksperimen
+model pohon serta benchmark xG StatsBomb. Kami tidak mengklaim mengalahkan
+benchmark. Nilai PitchIQ adalah proses yang bisa diperiksa: data sebelum shot,
+fitur yang jelas, dan analisis yang membantu menentukan pertanyaan lanjutan
+untuk pelatih. Angka di demo ini berasal dari laporan post-audit yang
+dihasilkan ulang (Okt 2026), bukan dari arsip lama."
 
 **(1:30–1:50) Demo inti — halaman xG Estimator**
 
@@ -41,13 +41,13 @@ jalur tembakan."
 
 **(1:50–2:35) Insight — halaman Insight Pemain & Tim**
 
-"Temuan yang bisa langsung dipakai. Aston Villa mengambil 55 persen tembakannya
-di bawah 0.05 xG; kalau sepertiga tembakan semacam itu diganti peluang
-berkualitas sedang, timnya dapat sekitar tambahan 5.7 xG per musim. Stoke City
-menembak dari jarak jauh 59 kali — nol gol. Counter-attack menghasilkan 0.170
-xG per tembakan, hampir dua kali lipat regular play, sehingga naik tempo adalah
-upgrade termurah. Dan koridor tepat di depan gawang, zona dengan xG terbaik
-0.184, hanya menerima 14 persen dari semua tembakan."
+"Insight Engine memeriksa bagian tembakan bernilai rendah, sampel tembakan
+jarak jauh, play pattern, dan zona yang paling produktif. Skenario penggantian
+peluang rendah-xG adalah kalkulasi berbasis asumsi, bukan jaminan tambahan gol.
+Perbedaan xG antar-play-pattern kami sajikan sebagai asosiasi deskriptif, bukan
+bukti sebab-akibat. Zona juga dibandingkan dengan memasangkan band lateral yang
+simetris di kedua sisi pusat gawang. Angka spesifik di bagian ini diambil dari
+laporan yang baru dihasilkan ulang, bukan arsip lama."
 
 **(2:35–2:50) Penutup**
 
@@ -57,11 +57,27 @@ kami rilis dengan lisensi MIT. Terima kasih!"
 
 ---
 
-## Angka utama (sinkron dengan aplikasi & Devpost)
+## Angka utama (regenerated post-audit, 29 Okt 2026 — sinkron dengan app)
 
-- LogReg test: AUC 0.772, log loss 0.263, Brier 0.0741; XGBoost: 0.781.
-- Aston Villa: 55% tembakan < 0.05 xG; estimasi +5.7 xG per musim bila
-  sepertiganya diganti peluang medium (~0.10 xG).
-- Stoke City: 59 tembakan dari 30+ unit, xG/shot 0.016, 0 gol.
-- 'From Counter': mean xG 0.170 (conversion 14.7%) vs regular play 0.104.
-- Koridor 110+/y20-40: mean xG 0.184, hanya 14.1% dari semua tembakan.
+- LogReg test holdout (seed 20261029, 96 match / 2.459 shot non-penalti):
+  AUC **0.796**, log loss **0.257**, Brier **0.0732**; benchmark StatsBomb
+  0.803 / 0.255 / 0.0724 — tidak diklaim menang.
+- Ablation: geometri 0.756 → +konteks shot 0.781 → +freeze-frame bek/kiper
+  **0.796** (+0.040 dibanding geometri saja).
+- Aston Villa: **54%** tembakan < 0.05 xG; skenario penggantian sepertiga
+  dengan peluang ~0.10 xG ≈ **+5.2 xG** (asumsi eksplisit, bukan causal
+  forecast).
+- Stoke City: 59 tembakan (14%) dari 30+ unit pitch: xG/shot 0.017, 0 gol.
+- Counter-attack: mean xG **0.146 vs 0.097** regular play (558 shot) —
+  asosiasi deskriptif, bukan efek kausal tempo.
+- Zona terbaik (110+ / dalam channel, band lateral di-mirror): mean xG
+  **0.178**, 27.5% dari semua tembakan.
+- Messi (Barcelona, La Liga): 27 gol vs 19.9 xG (**+7.06**, 190 tembakan);
+  Özil (Arsenal): 142 key-pass-linked shots (14.5 xG).
+
+
+## Wajib sebelum merekam demo / submit
+
+- Jalankan pipeline lengkap hingga semua tes selesai; jika pengunduhan data gagal, selesaikan kegagalan tersebut dan jangan gunakan cache parsial.
+- Buka app setelah pipeline selesai; pastikan warning artefak pra-audit sudah hilang.
+- Perbarui angka di pitch dari laporan baru, isi URL live demo di README/Devpost, dan pastikan repository GitHub publik.

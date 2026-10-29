@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 SEED: int = 42
+# New grouped holdout seed: do not reuse the pre-audit seed-42 test split.
+TEST_SPLIT_SEED: int = 20261029
 
 ROOT: Path = Path(__file__).resolve().parents[1]
 DATA_DIR: Path = ROOT / "data"

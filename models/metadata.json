@@ -1,14 +1,16 @@
 {
   "model_name": "Logistic Regression",
-  "trained_at_utc": "2026-10-29T05:07:33.049621+00:00",
+  "trained_at_utc": "2026-10-29T07:01:38.762143+00:00",
+  "pipeline_started_at_utc": "2026-10-29T06:50:32.753265+00:00",
   "seed": 42,
   "split": {
+    "test_split_seed": 20261029,
     "test_size": 0.2,
     "n_splits": 5,
     "train_matches": 383,
     "test_matches": 96,
-    "train_shots": 9584,
-    "test_shots": 2490
+    "train_shots": 9615,
+    "test_shots": 2459
   },
   "penalties_excluded": true,
   "features": [
@@ -36,65 +38,70 @@
   ],
   "feature_count": 21,
   "test_metrics": {
-    "roc_auc": 0.7722303659236509,
-    "log_loss": 0.2631118575477721,
-    "brier": 0.07406937839385816
+    "roc_auc": 0.7960561615133062,
+    "log_loss": 0.25743356932271116,
+    "brier": 0.07318699596700033
   },
   "calibration": {
-    "ece": 0.016138220121564954,
-    "calibration_slope": 0.8438473542085659,
-    "calibration_intercept": -0.3944277886031881
+    "ece": 0.020353581508648026,
+    "calibration_slope": 0.9577693134997979,
+    "calibration_intercept": -0.1329644457306586
   },
   "cv_metrics": {
-    "cv_roc_auc_mean": 0.7940559898730646,
-    "cv_roc_auc_std": 0.01761355904799976,
-    "cv_log_loss_mean": 0.2627051835546262,
-    "cv_log_loss_std": 0.00884632179537392,
-    "cv_brier_mean": 0.0744852432115003,
-    "cv_brier_std": 0.002861892345289499
+    "cv_roc_auc_mean": 0.7914757193479438,
+    "cv_roc_auc_std": 0.01835335501431812,
+    "cv_log_loss_mean": 0.26360796522457547,
+    "cv_log_loss_std": 0.022520828506685592,
+    "cv_brier_mean": 0.07458594247743394,
+    "cv_brier_std": 0.007467117100321546
   },
   "calibration_method": "none",
   "hyperparameters": {
     "C": 1.0,
     "solver": "lbfgs"
   },
+  "audit_protocol_version": "2026-10-29-v1",
   "selection": {
-    "close_call": true,
-    "best_raw_by_test_brier": "XGBoost",
-    "test_auc_gap_vs_logreg": 0.008643957373539846,
-    "test_brier_gap_vs_logreg": 0.0010621685889398158,
-    "cv_auc_gap_vs_logreg": 0.004759653509154638,
-    "cv_brier_gap_vs_logreg": 0.0004961184333280994,
-    "reason": "XGBoost is only +0.0086 AUC and +0.0011 Brier better on the test set, and the gap is inside CV noise. Logistic Regression is the more transparent choice; XGBoost remains the performance fallback."
+    "criterion": "pre-declared interpretable baseline (Logistic Regression)",
+    "selected_by_rule": "Logistic Regression",
+    "lowest_reported_cv_brier_exploratory_only": "XGBoost",
+    "test_metrics_used_for_selection": false,
+    "cv_metrics_used_for_selection": false,
+    "nested_cv_for_tuned_candidates": false,
+    "test_auc_gap_vs_logreg_descriptive_only": -0.012360232635557189,
+    "test_brier_gap_vs_logreg_descriptive_only": -0.0014761243389612433,
+    "cv_auc_gap_vs_logreg_descriptive_only": 0.00022236190497881836,
+    "cv_brier_gap_vs_logreg_descriptive_only": -0.00020718030677345511,
+    "reason": "Logistic Regression is the pre-declared deployment baseline for transparency and inspectability. Tuned tree models remain exploratory comparators; their CV scores are not used to select the deployed model because tuning and evaluation currently share folds (nested CV is not implemented). Neither outer-test metrics nor candidate CV metrics influence this model-family choice."
   },
   "alternative": {
     "model": "XGBoost",
     "test_metrics": {
-      "roc_auc": 0.7808743232971908,
-      "log_loss": 0.25899801875994616,
-      "brier": 0.07300720980491834
+      "roc_auc": 0.783695928877749,
+      "log_loss": 0.26290416896111035,
+      "brier": 0.07466312030596158
     },
     "cv_metrics": {
-      "cv_roc_auc_mean": 0.78929633636391,
-      "cv_roc_auc_std": 0.020878536580954583,
-      "cv_log_loss_mean": 0.26485933007316204,
-      "cv_log_loss_std": 0.009426017318172967,
-      "cv_brier_mean": 0.0749813616448284,
-      "cv_brier_std": 0.0028521229101680706
+      "cv_roc_auc_mean": 0.7916980812529226,
+      "cv_roc_auc_std": 0.011713804650777962,
+      "cv_log_loss_mean": 0.26312924990932307,
+      "cv_log_loss_std": 0.01889768247341215,
+      "cv_brier_mean": 0.07437876217066049,
+      "cv_brier_std": 0.0063888697795497764
     },
     "calibration": {
-      "ece": 0.011499186087190267,
-      "calibration_slope": 0.9784624394229523,
-      "calibration_intercept": -0.14635354369382084
+      "ece": 0.017124867260277312,
+      "calibration_slope": 0.9876701517404651,
+      "calibration_intercept": -0.04946848687887792
     }
   },
   "statsbomb_benchmark": {
-    "roc_auc": 0.7834686738951713,
-    "log_loss": 0.25457310768513575,
-    "brier": 0.07108445725710004,
-    "ece": 0.016158295170120487,
-    "calibration_slope": 0.9294021400393113,
-    "calibration_intercept": -0.1645261643682903
+    "roc_auc": 0.8028785712886991,
+    "log_loss": 0.2546516680405329,
+    "brier": 0.07244044643034676,
+    "ece": 0.019801768492761287,
+    "calibration_slope": 0.9647880125248018,
+    "calibration_intercept": -0.0674361524243283
   },
   "notes": "Grouped split by match_id. Penalties excluded. StatsBomb xG is a benchmark, never a feature. StatsBomb xG was trained on external data, so the comparison is indicative, not a like-for-like training-data comparison."
 }

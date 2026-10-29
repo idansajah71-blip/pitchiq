@@ -38,7 +38,7 @@ from sklearn.model_selection import (
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
-from .config import FEATURES_PARQUET, FIGURES_DIR, MODELS_DIR, REPORTS_DIR, SEED
+from .config import FEATURES_PARQUET, FIGURES_DIR, MODELS_DIR, REPORTS_DIR, SEED, TEST_SPLIT_SEED
 from .features import (
     BOOLEAN_FEATURES,
     CATEGORICAL_FEATURES,
@@ -195,7 +195,11 @@ def calibrate_if_needed(
     X_test: pd.DataFrame,
     y_test: pd.Series,
 ) -> tuple[Pipeline, ProbabilityCalibrator | None, pd.DataFrame]:
-    """Calibrate a model only when its raw probabilities are miscalibrated."""
+    """Choose calibration using training-only OOF predictions.
+
+    The test set is used only to report final metrics. It must not decide
+    whether calibration is applied or which calibration method is selected.
+    """
     raw_probabilities = model.predict_proba(X_test)[:, 1]
     raw_row = {
         "model": model_name,
@@ -203,15 +207,19 @@ def calibrate_if_needed(
         **classification_metrics(y_test, raw_probabilities),
         **calibration_summary(y_test, raw_probabilities),
     }
-    raw_calibration = calibration_summary(y_test, raw_probabilities)
+
+    # Calibration policy is based only on grouped out-of-fold predictions from
+    # the training partition. This keeps the final holdout out of model choices.
+    oof = out_of_fold_predictions(model, X_train, y_train, folds)
+    if not np.isfinite(oof).all():
+        raise ValueError("OOF prediction vector contains missing or non-finite values")
+    oof_calibration = calibration_summary(y_train, oof)
     well_calibrated = (
-        raw_calibration["ece"] <= 0.02
-        and 0.8 <= raw_calibration["calibration_slope"] <= 1.2
+        oof_calibration["ece"] <= 0.02
+        and 0.8 <= oof_calibration["calibration_slope"] <= 1.2
     )
     if well_calibrated:
         return model, None, pd.DataFrame([raw_row])
-
-    oof = out_of_fold_predictions(model, X_train, y_train, folds)
     raw_cv_brier = float(
         np.mean(
             [
@@ -484,6 +492,26 @@ def benchmark_cv_metrics(
     return output
 
 
+
+
+def choose_deployment_model(
+    available_models: Sequence[str],
+    preferred_model: str = "Logistic Regression",
+) -> str:
+    """Return the pre-declared interpretable deployment baseline.
+
+    XGBoost and Random Forest are tuned with cross-validation. Reusing those
+    same folds to choose the shipped model would make their reported CV scores
+    optimistically biased unless nested CV is used. Until nested CV is added,
+    model family selection is therefore fixed in advance to Logistic Regression;
+    test scores and post-tuning CV scores cannot change this choice.
+    """
+    if preferred_model not in available_models:
+        raise ValueError(
+            f"Pre-declared deployment model {preferred_model!r} is unavailable"
+        )
+    return preferred_model
+
 def result_row(
     name: str,
     test_metrics: dict[str, float],
@@ -553,6 +581,7 @@ def _json_default(value: Any) -> Any:
 def run_training() -> None:
     """Run the full Phase 2 modelling workflow."""
     started = time.time()
+    pipeline_started_at_utc = datetime.now(timezone.utc).isoformat()
     features = pd.read_parquet(FEATURES_PARQUET)
     X, y = get_X_y(features)
     groups = features.loc[X.index, "match_id"]
@@ -560,7 +589,7 @@ def run_training() -> None:
 
     print("=== 1. GROUPED SPLIT ===")
     splitter = GroupShuffleSplit(
-        n_splits=1, test_size=TEST_SIZE, random_state=SEED
+        n_splits=1, test_size=TEST_SIZE, random_state=TEST_SPLIT_SEED
     )
     train_index, test_index = next(splitter.split(X, y, groups))
     train_matches = set(groups.iloc[train_index])
@@ -647,38 +676,41 @@ def run_training() -> None:
         f"ECE {benchmark_calibration['ece']:.4f}"
     )
 
-    print("\n=== 6. MODEL SELECTION ===")
+    print("\n=== 6. DEPLOYMENT MODEL POLICY ===")
     logreg_test = raw_results["Logistic Regression"]["test"]
     logreg_cv = raw_results["Logistic Regression"]["cv"]
-    best_raw_name = min(
-        raw_results, key=lambda name: raw_results[name]["test"]["brier"]
+    # The model family is declared before looking at evaluation metrics. The
+    # tuned tree models use these same folds for hyperparameter search, so their
+    # ordinary CV scores are useful for exploration but not a fair selector.
+    chosen_base_name = choose_deployment_model(list(raw_results))
+    best_cv_name = min(
+        raw_results,
+        key=lambda name: raw_results[name]["cv"]["cv_brier_mean"],
     )
-    best_test = raw_results[best_raw_name]["test"]
-    best_cv = raw_results[best_raw_name]["cv"]
+    best_cv = raw_results[best_cv_name]["cv"]
+    best_cv_brier = float(best_cv["cv_brier_mean"])
+    logreg_cv_brier = float(logreg_cv["cv_brier_mean"])
 
-    test_auc_gap = best_test["roc_auc"] - logreg_test["roc_auc"]
-    test_brier_gap = logreg_test["brier"] - best_test["brier"]
-    cv_auc_gap = abs(
-        best_cv["cv_roc_auc_mean"] - logreg_cv["cv_roc_auc_mean"]
-    )
-    cv_brier_gap = abs(best_cv["cv_brier_mean"] - logreg_cv["cv_brier_mean"])
-    close_call = (
-        test_auc_gap <= 0.01
-        and test_brier_gap <= 0.0015
-        and cv_auc_gap <= 0.01
-        and cv_brier_gap <= 0.0015
-    )
-    print(f"Best raw model by test Brier: {best_raw_name}")
+    # These gaps are descriptive only; neither test nor post-tuning CV metrics
+    # influence the pre-declared Logistic Regression deployment choice.
+    best_cv_test = raw_results[best_cv_name]["test"]
+    test_auc_gap = best_cv_test["roc_auc"] - logreg_test["roc_auc"]
+    test_brier_gap = logreg_test["brier"] - best_cv_test["brier"]
+    cv_auc_gap = float(best_cv["cv_roc_auc_mean"] - logreg_cv["cv_roc_auc_mean"])
+    cv_brier_gap = best_cv_brier - logreg_cv_brier
+
+    print(f"Lowest reported CV Brier (exploratory only): {best_cv_name}")
+    print(f"Logistic Regression grouped CV Brier: {logreg_cv_brier:.4f}")
     print(
-        f"Test gap vs LogReg: AUC {test_auc_gap:+.4f}, "
-        f"Brier {test_brier_gap:+.4f} (positive = tree better)"
+        "Deployment model is pre-declared Logistic Regression. Tuned tree-model "
+        "CV metrics are not used for selection because this workflow does not "
+        "yet use nested CV."
     )
     print(
-        f"CV gap vs LogReg: |AUC| {cv_auc_gap:.4f}, "
-        f"|Brier| {cv_brier_gap:.4f}"
+        f"Diagnostic test deltas (not used for selection): "
+        f"AUC {test_auc_gap:+.4f}, Brier {test_brier_gap:+.4f}"
     )
-    chosen_base_name = "Logistic Regression" if close_call else best_raw_name
-    print(f"Close call: {close_call} -> base model: {chosen_base_name}")
+    print(f"Selected base model: {chosen_base_name}")
 
     print("\n=== 7. CALIBRATION CHECK ===")
     chosen_base_model = raw_models[chosen_base_name]
@@ -753,30 +785,14 @@ def run_training() -> None:
     print(display_comparison.to_string(index=False))
 
     print("\n=== 9. MODEL RECOMMENDATION ===")
-    if best_raw_name == "Logistic Regression":
-        reason = (
-            "Logistic Regression is both the best raw model by Brier and the "
-            "most interpretable option."
-        )
-    elif close_call:
-        reason = (
-            f"{best_raw_name} is only {test_auc_gap:+.4f} AUC and "
-            f"{test_brier_gap:+.4f} Brier better on the test set, and the gap "
-            "is inside CV noise. Logistic Regression is the more transparent "
-            f"choice; {best_raw_name} remains the performance fallback."
-        )
-        print(
-            f"Trade-off: {best_raw_name} is better calibrated at the extremes "
-            f"(slope {raw_results[best_raw_name]['calibration']['calibration_slope']:.3f} "
-            f"vs {raw_results['Logistic Regression']['calibration']['calibration_slope']:.3f}); "
-            "Logistic Regression wins on explainability and CV AUC."
-        )
-    else:
-        reason = (
-            f"{best_raw_name} has a material edge "
-            f"({test_auc_gap:+.4f} AUC, {test_brier_gap:+.4f} Brier) and is "
-            "the better probability model; use SHAP for interpretability."
-        )
+    reason = (
+        "Logistic Regression is the pre-declared deployment baseline for "
+        "transparency and inspectability. Tuned tree models remain exploratory "
+        "comparators; their CV scores are not used to select the deployed model "
+        "because tuning and evaluation currently share folds (nested CV is not "
+        "implemented). Neither outer-test metrics nor candidate CV metrics "
+        "influence this model-family choice."
+    )
     print(f"Recommended model: {chosen_name}")
     print(reason)
     print(
@@ -805,11 +821,14 @@ def run_training() -> None:
         "XGBoost": xgb_search.best_params_,
         "Random Forest": rf_search.best_params_,
     }
+    alternative_name = "XGBoost" if chosen_base_name != "XGBoost" else "Random Forest"
     metadata = {
         "model_name": chosen_name,
         "trained_at_utc": datetime.now(timezone.utc).isoformat(),
+        "pipeline_started_at_utc": pipeline_started_at_utc,
         "seed": SEED,
         "split": {
+            "test_split_seed": TEST_SPLIT_SEED,
             "test_size": TEST_SIZE,
             "n_splits": N_SPLITS,
             "train_matches": len(train_matches),
@@ -827,20 +846,25 @@ def run_training() -> None:
         if chosen_calibrator is not None
         else "none",
         "hyperparameters": parameters.get(chosen_base_name, {}),
+        "audit_protocol_version": "2026-10-29-v1",
         "selection": {
-            "close_call": close_call,
-            "best_raw_by_test_brier": best_raw_name,
-            "test_auc_gap_vs_logreg": test_auc_gap,
-            "test_brier_gap_vs_logreg": test_brier_gap,
-            "cv_auc_gap_vs_logreg": cv_auc_gap,
-            "cv_brier_gap_vs_logreg": cv_brier_gap,
+            "criterion": "pre-declared interpretable baseline (Logistic Regression)",
+            "selected_by_rule": chosen_base_name,
+            "lowest_reported_cv_brier_exploratory_only": best_cv_name,
+            "test_metrics_used_for_selection": False,
+            "cv_metrics_used_for_selection": False,
+            "nested_cv_for_tuned_candidates": False,
+            "test_auc_gap_vs_logreg_descriptive_only": test_auc_gap,
+            "test_brier_gap_vs_logreg_descriptive_only": test_brier_gap,
+            "cv_auc_gap_vs_logreg_descriptive_only": cv_auc_gap,
+            "cv_brier_gap_vs_logreg_descriptive_only": cv_brier_gap,
             "reason": reason,
         },
         "alternative": {
-            "model": best_raw_name,
-            "test_metrics": raw_results[best_raw_name]["test"],
-            "cv_metrics": raw_results[best_raw_name]["cv"],
-            "calibration": raw_results[best_raw_name]["calibration"],
+            "model": alternative_name,
+            "test_metrics": raw_results[alternative_name]["test"],
+            "cv_metrics": raw_results[alternative_name]["cv"],
+            "calibration": raw_results[alternative_name]["calibration"],
         },
         "statsbomb_benchmark": {
             **benchmark_test,

@@ -68,6 +68,7 @@ def _fetch_match(match_id: int, refresh: bool) -> pd.DataFrame:
     if path.exists() and not refresh:
         return pd.read_parquet(path)
 
+    last_error: Exception | None = None
     for attempt in range(3):
         try:
             events = sb.events(match_id=match_id)
@@ -76,10 +77,14 @@ def _fetch_match(match_id: int, refresh: bool) -> pd.DataFrame:
                 frame = pd.DataFrame(columns=CREATOR_COLUMNS)
             frame.to_parquet(path, index=False)
             return frame
-        except Exception:
+        except Exception as exc:
+            last_error = exc
             time.sleep(1.5 * (attempt + 1))
-    # Empty cache marker so reruns resume; failures are visible in the output.
-    return pd.DataFrame(columns=CREATOR_COLUMNS)
+    # Do not cache an empty marker for a network/API failure: that made a
+    # failed download indistinguishable from a match with no resolved assists.
+    raise RuntimeError(
+        f"creator data for match {match_id} failed after 3 attempts: {last_error}"
+    ) from last_error
 
 
 def build_creators(refresh: bool = False, max_workers: int = 12) -> pd.DataFrame:

@@ -260,11 +260,27 @@ def fetch_all_shots(
                 print(f"  fetched {done}/{len(match_ids)} matches", flush=True)
 
     if failures:
-        print(f"WARNING: {len(failures)} matches failed and were skipped.")
-        for match_id, message in failures[:5]:
+        print(f"ERROR: {len(failures)} matches failed; refusing to build a partial dataset.")
+        for match_id, message in failures[:10]:
             print(f"  {match_id}: {message}")
+        remaining = len(failures) - min(len(failures), 10)
+        if remaining:
+            print(f"  ... and {remaining} more failed matches")
+        raise RuntimeError(
+            f"StatsBomb download incomplete: {len(failures)}/{len(match_ids)} matches failed. "
+            "Retry with fewer workers or rerun after the network/rate limit clears."
+        )
+    if not results:
+        raise RuntimeError("No shot data were fetched; refusing to create an empty dataset.")
 
     shots = pd.concat(results, ignore_index=True)
+    fetched_ids = set(shots["match_id"].dropna().astype(int).unique())
+    missing_ids = set(match_ids) - fetched_ids
+    if missing_ids:
+        raise RuntimeError(
+            f"No shot rows were returned for {len(missing_ids)} expected matches; "
+            "check data coverage before training."
+        )
     return shots
 
 

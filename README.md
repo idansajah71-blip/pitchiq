@@ -11,8 +11,8 @@ leaderboard.
 
 ## Live demo
 
-Deployed on **Streamlit Community Cloud** — link to be added before
-submission. Until then, run it locally:
+Deployed on **Streamlit Community Cloud** — URL to be added after the public
+deployment is verified. Until then, run locally:
 
 ```bash
 streamlit run app/streamlit_app.py
@@ -20,7 +20,7 @@ streamlit run app/streamlit_app.py
 
 | ![Shot map](reports/figures/fig1_shot_map.png) |
 |---|
-| *Shot Map — every shot sized/coloured by PitchIQ xG; in the app this is a fully interactive Plotly visual with hover details and filters.* |
+| *Exploratory shot map by outcome (goal/no goal). The live app's interactive Plotly map uses PitchIQ xG for size/colour and exposes filters and hover details.* |
 
 ## The problem
 
@@ -41,32 +41,63 @@ lead directly to concrete instructions.
    calibration curves) explained in plain language, benchmarked against
    StatsBomb's own xG on the same held-out matches.
 4. **Insight Engine** — player/creator/finisher leaderboards, team shot
-   selection, zone efficiency, and the five recommendations below.
+   selection, zone efficiency, and coaching hypotheses. Creator counts mean
+   key-pass-linked shots, not the official assist total; rankings are scoped by
+   team and competition.
 
-## Results (seed 42, penalties excluded, split grouped by match)
+## Results (regenerated with the audited pipeline, Oct 29 2026)
 
-| Model | ROC-AUC | Log loss | Brier |
-|---|---|---|---|
-| Logistic Regression (chosen) | 0.772 | 0.263 | 0.0741 |
-| XGBoost (tuned) | 0.781 | 0.259 | 0.0730 |
-| Random Forest | 0.775 | 0.260 | 0.0731 |
-| StatsBomb xG (benchmark) | 0.783 | 0.255 | 0.0711 |
+> **Evaluation framing.** Logistic Regression is the pre-declared deployment
+> baseline for transparency; tuned-tree CV scores are exploratory comparators
+> (nested CV is not yet implemented), so no claim is made that PitchIQ matches
+> StatsBomb's specialist xG. Because the dataset was examined during
+> development, the refreshed grouped holdout is a development evaluation, not a
+> pristine independent benchmark. Protocol: `audit_protocol_version
+> 2026-10-29-v1`, split seed `20261029`.
 
-* Ablation: distance+angle alone → AUC 0.748; + shot context → 0.761;
-  **+ freeze-frame defender/GK features → 0.772** (+0.024 over geometry only).
-* XGBoost's edge is inside CV noise (Δ AUC ≈ 0.009), so the transparent
-  Logistic Regression is shipped and trees remain the performance fallback.
+Grouped holdout: 96 matches / 2,459 non-penalty shots (train: 383 matches /
+9,615 shots), zero match leakage.
 
-### Headline insights (coach language)
+| Model | ROC-AUC | Log loss | Brier | ECE |
+|---|---|---|---|---|
+| Logistic Regression (deployed) | 0.796 | 0.257 | 0.0732 | 0.020 |
+| XGBoost (tuned, exploratory) | 0.784 | 0.263 | 0.0747 | 0.017 |
+| Random Forest (exploratory) | 0.780 | 0.264 | 0.0747 | 0.017 |
+| StatsBomb xG (benchmark) | 0.803 | 0.255 | 0.0724 | 0.020 |
 
-* Counter-attack shots average **0.170 xG** (14.7% conversion) vs 0.104 in
-  regular play — tempo is the cheapest upgrade.
-* Aston Villa take **55%** of their shots at < 0.05 xG; Stoke City shoot from
-  30+ units out for 14% of attempts (xG/shot 0.016, 0 goals). Killing those
-  attempts is worth ~**+5.7 xG** per season.
-* Zone `110+/y20-40` delivers 0.184 mean xG but only sees 14.1% of shots.
-* Messi: 30 goals from 22.6 xG (**+7.4**, 217 shots); Özil: 142 assisted shots
-  (14.7 xG created).
+* Ablation on the same holdout: distance+angle alone → AUC 0.756;
+  + shot context → 0.781; **+ freeze-frame defenders/GK → 0.796**
+  (+0.040 over geometry only).
+* Raw probabilities already pass the out-of-fold calibration tolerance
+  (slope 0.958, ECE 0.020) — no extra calibration layer needed.
+
+### Headline findings (regenerated, audit-framed)
+
+* **Aston Villa** — 54% of shots below 0.05 xG (xG/shot 0.073 vs 0.098 dataset
+  mean). Replacing one third with ~0.10 xG chances would add ≈ **+5.2 xG**;
+  a typed scenario, not a causal forecast.
+* **Stoke City** — 59 shots (14%) from 30+ pitch-coordinate units: xG/shot
+  0.017, 0 goals. Coaching hypothesis: review progression in those clips; low
+  xG alone does not prove a shot was a mistake.
+* **Counter-attacks** — mean xG 0.146 vs 0.097 in regular play (558 shots);
+  a descriptive association to inspect on video, not a proven tempo effect.
+* **Zone value** — the highest-value band (110+ / inside channel, mirrored
+  y-bands) averages 0.178 xG on 27.5% of shots; a candidate entry-balance
+  training point.
+* **Messi (Barcelona, La Liga)** — 27 goals on 19.9 xG (**+7.06**, 190 shots);
+  an observed residual — validate on a larger sample before calling it
+  repeatable skill. Özil: 142 key-pass-linked shots for Arsenal (14.5 xG).
+
+## Audit transparency
+
+Full audit from Oct 29 2026: `PITCHIQ_Audit_Report.md` (findings P0–P2,
+protocol changes) and `PITCHIQ_Pre_Submission_Checklist.md` (reproduction
+steps). What changed after the audit: deployment model pre-declared (no
+test-set selection), calibration chosen from training-only out-of-fold
+predictions, player/creator tables scoped by player–team–competition,
+regression tests for the selection policy and insights, fail-loud data
+fetching, and assumption-labelled recommendation copy. Regeneration ran
+end-to-end on this repository (22/22 tests passing).
 
 ## Data
 
@@ -86,7 +117,9 @@ one-on-one is a different task. Freeze frames exist for 98.8% of shots.
 * `shot.outcome` only builds the target; `shot_statsbomb_xg` is a benchmark,
   never an input; `shot_end_location` never enters the table.
 * Every feature is justified in `reports/feature_justification.md`;
-  11 feature/geometry tests + 2 headless app smoke tests guard the pipeline.
+  11 geometry/feature tests, 2 model-policy tests, 7 insight-regression tests,
+  and 2 headless app smoke tests guard the pipeline. The app tests require
+  Streamlit and the other runtime dependencies to be installed.
 
 ## How to run
 
@@ -96,15 +129,15 @@ pip install -r requirements.txt
 # full reproducible pipeline (downloads/caches StatsBomb events first run)
 # PowerShell:  ./scripts/run_pipeline.ps1
 # or step-by-step:
-python -m src.data && python -m src.features && python -m src.eda
+python -m src.data --workers 4 && python -m src.features && python -m src.eda
 python -m src.train
-python -m src.creators && python -m src.insights
+python -m src.creators --workers 4 && python -m src.insights
 
 # the app
 streamlit run app/streamlit_app.py
 ```
 
-Requires Python 3.11+. Tests: `python -m pytest tests/ -q` (13 tests).
+Requires Python 3.11+. Run `python -m pytest tests/ -q`; 22 tests should run when all app dependencies are installed.
 
 ## Project structure
 
@@ -126,12 +159,13 @@ pitchiq/
 
 ## Limitations & next steps
 
-* 3 competitions, 479 matches — club data is 2015/16 & 2019/20; xG style
-  margins may drift with rule changes (2025: shot-clock tendencies).
+* 3 competitions, 479 matches — club data is limited to the selected 2015/16
+  and 2019/20 seasons; model calibration and style may drift across leagues,
+  seasons, and competitions.
 * Freeze-frame features are pre-shot snapshots, not tracked pressure quality;
   estimator ignores defender/GK placement (median-imputed, flagged).
-* Player tables treat the shooter as credential — "creators" use assisted
-  shots, not weighted value-added (would need event-level pass chains).
+* Creator totals count resolved assisted shots; they are not a full causal or
+  possession-value estimate (that would require event-level pass-chain modelling).
 * goals − xG on < 30 shots is noise; the app flags small samples.
 * Next: step-based EPV instead of a static angle model, calibration
   monitoring per competition, and a pass-chain xG added for creators.
