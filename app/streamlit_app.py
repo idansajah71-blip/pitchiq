@@ -237,13 +237,19 @@ def global_css() -> None:
 
 :root {{ color-scheme: dark; }}
 
+/* Balanced composition: constrain and center the main column */
+div[data-testid="stMainBlockContainer"] {{
+    max-width: 1220px;
+    margin: 0 auto;
+}}
+
 /* Poster hero band */
 .piq-hero {{
     position: relative; overflow: hidden;
     background: linear-gradient(102deg, {NAVY} 0%, {NAVY_2} 52%, rgba(28,94,54,0.55) 100%);
     border: 1px solid {LINE};
     border-radius: 16px;
-    padding: 24px 26px 20px 26px;
+    padding: 20px 24px 16px 24px;
     margin-bottom: 4px;
 }}
 .piq-hero::before {{
@@ -257,8 +263,8 @@ def global_css() -> None:
     width: 3px; background: linear-gradient(180deg, {GREEN}, transparent);
 }}
 .piq-hero-img {{
-    position: absolute; right: 18px; bottom: -8px; height: 158px;
-    filter: drop-shadow(0 12px 26px rgba(0,0,0,0.55));
+    position: absolute; right: 16px; bottom: -6px; height: 140px;
+    filter: drop-shadow(0 10px 22px rgba(0,0,0,0.55));
     pointer-events: none;
 }}
 .piq-index {{
@@ -271,22 +277,22 @@ def global_css() -> None:
 .piq-word {{
     display: block;
     font-family: {DISPLAY}; font-weight: 700;
-    font-size: clamp(42px, 5.6vw, 74px);
-    line-height: 0.95; letter-spacing: 2px;
+    font-size: clamp(36px, 4.4vw, 58px);
+    line-height: 0.95; letter-spacing: 1.5px;
     text-transform: uppercase; color: {TEXT};
-    margin: 8px 0 10px 0; white-space: nowrap;
+    margin: 6px 0 8px 0; white-space: nowrap;
 }}
 .piq-word .ghost {{
     color: transparent;
-    -webkit-text-stroke: 1.5px rgba(230,237,243,0.42);
-    margin-left: 0.22em;
+    -webkit-text-stroke: 1.3px rgba(230,237,243,0.40);
+    margin-left: 0.18em;
 }}
 .piq-word .amp {{ color: {GREEN}; }}
 .piq-sub {{
-    font: 400 13.5px/1.55 {BODY}; color: {TEXT_DIM};
-    max-width: 640px; margin: 0 0 10px 0;
+    font: 400 13px/1.5 {BODY}; color: {TEXT_DIM};
+    max-width: 560px; margin: 0 0 8px 0;
 }}
-.piq-crumbs {{ margin-top: 6px; }}
+.piq-crumbs {{ margin-top: 4px; }}
 .piq-chip {{
     display: inline-flex; align-items: center; gap: 6px;
     padding: 3px 11px; margin-right: 7px;
@@ -300,7 +306,7 @@ def global_css() -> None:
 /* Section headings: letter circle + spaced caps + rule */
 .piq-section {{
     display: flex; align-items: center; gap: 12px;
-    margin: 22px 0 12px 0;
+    margin: 16px 0 8px 0;
 }}
 .piq-section .idx {{
     flex: 0 0 auto; width: 27px; height: 27px; border-radius: 50%;
@@ -535,22 +541,22 @@ def shot_map_page() -> None:
         hoverlabel=HOVERLABEL,
         font=dict(family=BODY, color=TEXT_DIM),
         shapes=PITCH_SHAPES,
-        height=560,
+        height=520,
         margin=dict(l=10, r=58, t=10, b=10),
         xaxis=dict(range=[-3, 126], showgrid=False, zeroline=False, visible=False,
                    scaleanchor="y", scaleratio=1.0),
         yaxis=dict(range=[-3, 83], showgrid=False, zeroline=False, visible=False),
     )
 
-    # Poster echo of the empty half: giant display-type watermark.
+    # Poster echo of the empty half: restrained display-type watermark.
     fig.add_annotation(
-        x=26, y=40, text="<b>12.241</b><br><span style='font-size:16px'>TEMBAKAN</span>",
-        showarrow=False, font=dict(family=DISPLAY, size=64, color="rgba(230,237,243,0.07)"),
+        x=30, y=42, text="<b>12.241</b><br><span style='font-size:12px'>TEMBAKAN</span>",
+        showarrow=False, font=dict(family=DISPLAY, size=44, color="rgba(230,237,243,0.08)"),
         align="center",
     )
     fig.add_annotation(
-        x=26, y=22, text="rata-rata PitchIQ xG 0.098",
-        showarrow=False, font=dict(family=BODY, size=13, color="rgba(46,194,126,0.30)"),
+        x=30, y=31, text="rata-rata PitchIQ xG 0.098",
+        showarrow=False, font=dict(family=BODY, size=11, color="rgba(46,194,126,0.32)"),
         align="center",
     )
 
@@ -638,8 +644,8 @@ def estimator_page() -> None:
         with prob_col:
             st.markdown(
                 f"""<div style="font-family:{DISPLAY};font-weight:700;letter-spacing:1px;
-                font-size:56px;line-height:1.02;color:{prob_color};">{probability:.1%}</div>
-                <div style="font:600 10.5px/1.6 {BODY};letter-spacing:0.16em;text-transform:uppercase;
+                font-size:44px;line-height:1.05;color:{prob_color};">{probability:.1%}</div>
+                <div style="font:600 10px/1.6 {BODY};letter-spacing:0.16em;text-transform:uppercase;
                 color:{TEXT_DIM};margin-top:2px;">Peluang jadi gol</div>""",
                 unsafe_allow_html=True,
             )
