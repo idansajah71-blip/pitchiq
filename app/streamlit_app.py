@@ -2229,11 +2229,20 @@ def render_splash() -> None:
 </style>""",
         unsafe_allow_html=True,
     )
-    # Fast identity read for the headline numbers - no model scoring, so the
-    # splash paints immediately even on a cold session.
-    shots = pd.read_parquet(DATA_DIR / "shots.parquet")
-    shots_count = int((~shots["is_penalty"].fillna(False)).sum())
-    matches_count = int(shots["match_id"].nunique())
+    # Headline numbers: fast identity read when the raw shots table is
+    # present (local runs); otherwise fall back to the committed report
+    # artifacts or the audited totals, so cold cloud clones never crash.
+    shots_count, matches_count = 12074, 479
+    try:
+        shots = pd.read_parquet(DATA_DIR / "shots.parquet")
+        shots_count = int((~shots["is_penalty"].fillna(False)).sum())
+        matches_count = int(shots["match_id"].nunique())
+    except Exception:
+        try:
+            teams = pd.read_csv(REPORTS_DIR / "team_summary.csv")
+            shots_count = int(teams["shots_for"].sum())
+        except Exception:
+            pass
 
     st.markdown(
         f"""<div class="splash">
