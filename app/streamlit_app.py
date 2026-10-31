@@ -115,6 +115,7 @@ TEXT_DIM = "#93a4b5"
 
 DISPLAY = "'Barlow Condensed','Oswald','Arial Narrow',Impact,sans-serif"
 BODY = "'Inter','Source Sans Pro',system-ui,sans-serif"
+BLUE_DEEP = "#1b4f9c"
 
 XG_SCALE = [
     [0.0, "#7f1d1d"],
@@ -1810,7 +1811,61 @@ def insights_page() -> None:
         )
         st.caption("Tier = finishing over/underperformance vs xG among sampled players (CLINICAL ≥ +4). Assisted xG counts key-pass-linked shots only.")
 
-    section("6", "Scout card", "target")
+    section("6", "Regression watchlist", "chart")
+    if qualified.empty:
+        st.caption("Lower the minimum-shots slider for watchlist candidates.")
+    else:
+        wcol_left, wcol_right = st.columns(2, gap="large")
+        with wcol_left:
+            st.markdown("##### Likely to cool down — finished far above xG")
+            cooled = qualified.sort_values("goals_minus_xg", ascending=False).head(8)[
+                ["team", "shots", "goals", "xg_pitchiq", "goals_minus_xg"]
+            ].copy()
+            cooled.insert(0, "Player", cooled.index.astype(str))
+            cooled.columns = ["Player", "Team", "Shots", "Goals", "Total xG", "Goals − xG"]
+            st.dataframe(
+                cooled, width="stretch", hide_index=True,
+                column_config={
+                    "Shots": st.column_config.NumberColumn(format="int"),
+                    "Goals": st.column_config.NumberColumn(format="int"),
+                    "Total xG": st.column_config.NumberColumn(format="%.1f"),
+                    "Goals − xG": st.column_config.NumberColumn(format="%+.2f"),
+                },
+            )
+        with wcol_right:
+            st.markdown("##### Undervalued finishers — quality priced in, goals not yet")
+            quality_bar = float(qualified["xg_per_shot"].quantile(0.75))
+            undervalued = qualified[
+                (qualified["xg_per_shot"] >= quality_bar)
+                & (qualified["goals_minus_xg"] < -0.5)
+            ].sort_values("goals_minus_xg").head(8)[
+                ["team", "shots", "goals", "xg_pitchiq", "xg_per_shot", "goals_minus_xg"]
+            ].copy()
+            if undervalued.empty:
+                st.caption("No undervalued finishers at this sample threshold — lower the slider.")
+            else:
+                undervalued.insert(0, "Player", undervalued.index.astype(str))
+                undervalued.columns = [
+                    "Player", "Team", "Shots", "Goals", "Total xG", "xG/shot", "Goals − xG"
+                ]
+                st.dataframe(
+                    undervalued, width="stretch", hide_index=True,
+                    column_config={
+                        "Shots": st.column_config.NumberColumn(format="int"),
+                        "Goals": st.column_config.NumberColumn(format="int"),
+                        "Total xG": st.column_config.NumberColumn(format="%.1f"),
+                        "xG/shot": st.column_config.NumberColumn(format="%.3f"),
+                        "Goals − xG": st.column_config.NumberColumn(format="%+.2f"),
+                    },
+                )
+        st.caption(
+            "Left: finishing tends to mean-revert toward xG — hot streaks above "
+            "expectation often cool; hot form is a scouting flag, not a guarantee. "
+            "Right: players priced high xG/shot but finishing below expectation — "
+            "labelled assumptions, small samples (see the slider) stay noisy."
+        )
+
+    section("7", "Scout card", "target")
     league_xg_ps = float(team_stats["xg_per_shot_for"].mean())
     league_lowq = float(team_stats["low_quality_share"].mean())
     scout_team = st.selectbox("Scout which team?", team_list, index=team_list.index(volume_pair[0]) if volume_pair[0] in team_list else 0)
@@ -1914,6 +1969,89 @@ def sidebar() -> str:
     return page
 
 
+def render_splash() -> None:
+    """Full-screen poster splash for the first paint; CSS fades it away."""
+    logo = ASSETS_DIR / "logo.svg"
+    logo_html = (
+        f'<img src="data:image/svg+xml;base64,'
+        f'{base64.b64encode(logo.read_bytes()).decode()}" width="30" height="30" alt="">'
+        if logo.exists() else ""
+    )
+    st.markdown(
+        f"""<style>
+.splash {{
+    position: fixed; inset: 0; z-index: 100000; overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(1100px 520px at 82% -12%, {tint(BLUE_DEEP, 0.45)}, transparent 70%),
+        radial-gradient(800px 420px at -8% 112%, {tint(GREEN, 0.20)}, transparent 70%),
+        linear-gradient(150deg, {NAVY} 0%, {INK} 80%);
+    display: flex; align-items: center; justify-content: center;
+    animation: splashGone 3s cubic-bezier(.4,.2,.2,1) 1.6s forwards;
+}}
+.splash .wedge {{
+    position: absolute; top: -40%; right: -4%; width: 320px; height: 190%;
+    background: linear-gradient(180deg, {tint(BLUE_DEEP, 0.5)}, {tint(BLUE_DEEP, 0)});
+    transform: rotate(18deg); border-left: 1.4px dashed rgba(78,161,255,0.35);
+}}
+.splash .wedge2 {{
+    position: absolute; bottom: -52%; right: 22%; width: 220px; height: 170%;
+    background: linear-gradient(180deg, {tint(GREEN, 0.32)}, {tint(GREEN, 0)});
+    transform: rotate(-14deg);
+}}
+.splash-inner {{ width: min(780px, 92vw); position: relative; }}
+.splash-item {{ animation: splashUp .8s cubic-bezier(.2,.8,.2,1) both; }}
+.splash-d1 {{ animation-delay: .05s; }}
+.splash-d2 {{ animation-delay: .18s; }}
+.splash-d3 {{ animation-delay: .32s; }}
+.splash-d4 {{ animation-delay: .5s; }}
+@keyframes splashUp {{ from {{ opacity: 0; transform: translateY(30px); }} to {{ opacity: 1; transform: none; }} }}
+@keyframes splashGone {{ to {{ opacity: 0; visibility: hidden; }} }}
+@keyframes sweep {{ from {{ width: 0; }} to {{ width: 130px; }} }}
+.splash-brand {{ display: flex; align-items: center; gap: 10px; color: {TEXT_DIM};
+    font: 600 11px/2.1 {BODY}; letter-spacing: .24em; text-transform: uppercase; }}
+.splash-word {{ font-family: {DISPLAY}; font-weight: 700; font-size: clamp(88px, 11.5vw, 150px);
+    line-height: .92; letter-spacing: 2px; color: {TEXT}; text-transform: uppercase; margin: 12px 0 0 0; }}
+.splash-word .ghost {{ color: transparent; -webkit-text-stroke: 1.6px rgba(230,237,243,.52); }}
+.splash-rule {{ height: 3px; width: 130px; background: {GREEN}; border-radius: 2px;
+    margin: 16px 0 12px 0; animation: sweep .9s .55s cubic-bezier(.2,.8,.2,1) both; }}
+.splash-sub {{ font: 400 15.5px/1.65 {BODY}; color: {TEXT_DIM}; max-width: 520px; }}
+.splash-stats {{ display: flex; gap: 34px; margin: 16px 0 0 0; flex-wrap: wrap; }}
+.splash-stats .num {{ font-family: {DISPLAY}; font-weight: 700; font-size: 38px; line-height: 1; color: {TEXT}; }}
+.splash-stats .lbl {{ font: 600 9.5px/2.2 {BODY}; letter-spacing: .18em; text-transform: uppercase; color: {TEXT_DIM}; }}
+.splash .flash {{ position: absolute; left: 0; right: 0; bottom: 26px; display: flex;
+    justify-content: center; color: {TEXT_DIM}; font: 600 10px/2 {BODY}; letter-spacing: .2em;
+    text-transform: uppercase; }}
+</style>""",
+        unsafe_allow_html=True,
+    )
+    data = load_shots()
+    shots_count = int((~data["is_penalty"].fillna(False)).sum())
+    matches_count = int(data["match_id"].nunique())
+
+    st.markdown(
+        f"""<div class="splash">
+  <span class="wedge"></span><span class="wedge2"></span>
+  <div class="splash-inner">
+    <div class="splash-brand splash-item splash-d1">{logo_html} SHOTWORTH · xG INTELLIGENCE</div>
+    <div class="splash-word splash-item splash-d2">SHOT <span class="ghost">WORTH</span></div>
+    <div class="splash-rule"></div>
+    <div class="splash-sub splash-item splash-d3">Every shot has a price. This app prices
+    {shots_count:,} real attempts from {matches_count} matches of StatsBomb Open Data —
+    with a transparent model, honest metrics and coach-facing insights.</div>
+    <div class="splash-stats splash-item splash-d4">
+      <div><div class="num">{shots_count:,}</div><div class="lbl">Shots priced</div></div>
+      <div><div class="num">{matches_count}</div><div class="lbl">Matches</div></div>
+      <div><div class="num">3</div><div class="lbl">Competitions</div></div>
+      <div><div class="num">0.796</div><div class="lbl">Test AUC</div></div>
+    </div>
+  </div>
+  <div class="flash">From box scores to probabilities · one shot at a time</div>
+</div>""",
+        unsafe_allow_html=True,
+    )
+
+
 def artifacts_fresh(meta_path: Path) -> bool:
     """True when the model metadata matches the audited protocol and every
     downstream artifact is newer than the training timestamp."""
@@ -1963,6 +2101,12 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     global_css()
+
+    # Poster splash on the very first paint of a session: it fades itself out
+    # after ~3s (CSS forwards) and never renders again in the session.
+    if not st.session_state.get("splashed", False):
+        render_splash()
+        st.session_state["splashed"] = True
 
     page = sidebar()
 

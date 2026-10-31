@@ -101,7 +101,8 @@ Grouped holdout: 96 matches / 2,459 non-penalty shots (train: 383 matches /
 
 Full audit from Oct 29 2026: `PITCHIQ_Audit_Report.md` (findings P0–P2,
 protocol changes) and `PITCHIQ_Pre_Submission_Checklist.md` (reproduction
-steps). What changed after the audit: deployment model pre-declared (no
+steps). Model documentation: `docs/MODEL_CARD.md` (data, features, splits,
+metrics, intended use and limitations). What changed after the audit: deployment model pre-declared (no
 test-set selection), calibration chosen from training-only out-of-fold
 predictions, player/creator tables scoped by player–team–competition,
 regression tests for the selection policy and insights, fail-loud data
