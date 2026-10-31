@@ -55,7 +55,7 @@ page_titles: dict[str, str] = {
 # Poster configuration per page: index letter, display words, subtitle.
 page_posters: dict[str, dict[str, str]] = {
     "Front Page": dict(
-        index="00", word_1="PITCH", word_2="IQ",
+        index="00", word_1="SHOT", word_2="WORTH",
         subtitle="12,241 real shots priced by a transparent model, built on 479 "
                  "matches of StatsBomb Open Data — pick a door and step inside.",
         asset="hero_front.png",
