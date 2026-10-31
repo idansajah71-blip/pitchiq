@@ -2191,7 +2191,7 @@ def render_splash() -> None:
         radial-gradient(800px 420px at -8% 112%, {tint(GREEN, 0.20)}, transparent 70%),
         linear-gradient(150deg, {NAVY} 0%, {INK} 80%);
     display: flex; align-items: center; justify-content: center;
-    animation: splashGone 2.1s cubic-bezier(.4,0,.2,1) 1s forwards;
+    animation: splashGone 4.6s cubic-bezier(.4,0,.2,1) .1s forwards;
 }}
 .splash .wedge {{
     position: absolute; top: -40%; right: -4%; width: 320px; height: 190%;
@@ -2210,7 +2210,7 @@ def render_splash() -> None:
 .splash-d3 {{ animation-delay: .32s; }}
 .splash-d4 {{ animation-delay: .5s; }}
 @keyframes splashUp {{ from {{ opacity: 0; transform: translateY(30px); }} to {{ opacity: 1; transform: none; }} }}
-@keyframes splashGone {{ to {{ opacity: 0; visibility: hidden; }} }}
+@keyframes splashGone {{ 0%, 62% {{ opacity: 1; }} 100% {{ opacity: 0; visibility: hidden; }} }}
 @keyframes sweep {{ from {{ width: 0; }} to {{ width: 130px; }} }}
 .splash-brand {{ display: flex; align-items: center; gap: 10px; color: {TEXT_DIM};
     font: 600 11px/2.1 {BODY}; letter-spacing: .24em; text-transform: uppercase; }}
@@ -2229,9 +2229,11 @@ def render_splash() -> None:
 </style>""",
         unsafe_allow_html=True,
     )
-    data = load_shots()
-    shots_count = int((~data["is_penalty"].fillna(False)).sum())
-    matches_count = int(data["match_id"].nunique())
+    # Fast identity read for the headline numbers - no model scoring, so the
+    # splash paints immediately even on a cold session.
+    shots = pd.read_parquet(DATA_DIR / "shots.parquet")
+    shots_count = int((~shots["is_penalty"].fillna(False)).sum())
+    matches_count = int(shots["match_id"].nunique())
 
     st.markdown(
         f"""<div class="splash">
@@ -2306,6 +2308,14 @@ def main() -> None:
     )
     global_css()
 
+    # Poster splash owns the very first paint: it is the FIRST element
+    # streamed, so the page can never flash before it. It holds ~3s while the
+    # page completes underneath, then fades itself away (CSS forwards) and
+    # never renders again this session.
+    if not st.session_state.get("splashed", False):
+        render_splash()
+        st.session_state["splashed"] = True
+
     page = sidebar()
 
     # Artifact integrity: warn if model/reports do not match the audited
@@ -2334,12 +2344,6 @@ def main() -> None:
         insights_page()
 
     footer_band()
-
-    # Splash renders LAST so every home element below it is fully painted
-    # before the overlay fades — no blank gap, no post-splash reflow.
-    if not st.session_state.get("splashed", False):
-        render_splash()
-        st.session_state["splashed"] = True
 
 
 if __name__ == "__main__":
