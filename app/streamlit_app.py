@@ -275,6 +275,14 @@ div[data-testid="stMainBlockContainer"] {{
 header[data-testid="stHeader"] {{ background: transparent; }}
 #MainMenu, footer, div[data-testid="stDecoration"], [data-testid="stStatusWidget"] {{ visibility: hidden; }}
 
+/* Splash atmosphere: every page lives in the same deep gradient world */
+div[data-testid="stMain"] {{
+    background:
+        radial-gradient(1100px 520px at 82% -12%, {tint(BLUE_DEEP, 0.40)}, transparent 70%),
+        radial-gradient(900px 460px at -10% 115%, {tint(GREEN, 0.16)}, transparent 70%),
+        linear-gradient(150deg, {NAVY} 0%, {INK} 82%);
+}}
+
 /* Poster hero band */
 .piq-hero {{
     position: relative; overflow: hidden;
@@ -380,22 +388,53 @@ div[data-testid="stMetricLabel"] p {{
 div[data-testid="stMetricValue"] {{ font-family: {DISPLAY}; font-weight: 700; letter-spacing: 1px; }}
 div[data-testid="stMetricDelta"] svg {{ color: {GREEN} !important; }}
 
+/* Front page: open-air splash composition (no hero band) */
+.piq-page-head {{ margin-top: 4px; }}
+.piq-page-brand {{ display: flex; align-items: center; gap: 10px; color: {TEXT_DIM};
+    font: 600 11px/2.2 {BODY}; letter-spacing: .24em; text-transform: uppercase; margin: 6px 0 0 0; }}
+.piq-giant {{ font-family: {DISPLAY}; font-weight: 700; font-size: clamp(64px, 8.6vw, 112px);
+    line-height: .94; letter-spacing: 2px; color: {TEXT}; text-transform: uppercase;
+    margin: 10px 0 0 0; white-space: nowrap; }}
+.piq-giant .ghost {{ color: transparent; -webkit-text-stroke: 1.6px rgba(230,237,243,.5); }}
+.piq-rule-sweep {{ height: 3px; width: 130px; background: {GREEN}; border-radius: 2px;
+    margin: 16px 0 12px 0; }}
+.piq-page-sub {{ font: 400 15.5px/1.65 {BODY}; color: {TEXT_DIM}; max-width: 640px; margin: 0 0 8px 0; }}
+.piq-page-stats {{ display: flex; gap: 46px; flex-wrap: wrap; margin: 22px 0 4px 0; }}
+.piq-page-stats .cell .num {{ font-family: {DISPLAY}; font-weight: 700;
+    font-size: clamp(44px, 5vw, 62px); line-height: 1; color: {TEXT}; }}
+.piq-page-stats .cell .lbl {{ font: 600 9.5px/2.4 {BODY}; letter-spacing: .18em;
+    text-transform: uppercase; color: {TEXT_DIM}; }}
+
+/* Door index chips */
+.piq-door-toprow {{ display: flex; align-items: center; justify-content: space-between;
+    margin: 2px 0 2px 0; }}
+.piq-door-idx {{ display: inline-flex; align-items: center; min-width: 30px; height: 24px;
+    padding: 0 9px; border-radius: 999px; border: 1.4px solid {tint(GREEN, 0.45)};
+    color: {GREEN}; font: 700 12px/1 {DISPLAY}; letter-spacing: .1em; }}
+.piq-door-arrow svg {{ color: {TEXT_DIM}; }}
+
 /* Landing door tiles */
 [class*="st-key-door-card"] {{
     border: 1.4px dashed {LINE};
-    border-radius: 14px;
-    background: linear-gradient(135deg, {PANEL} 0%, #0f1622 100%);
-    padding: 6px 10px 10px 10px;
+    border-radius: 16px;
+    background: linear-gradient(150deg, rgba(13,17,26,0.62) 0%, rgba(13,17,26,0.42) 100%);
+    padding: 14px 18px 12px 18px;
     margin-bottom: 4px;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}}
+[class*="st-key-door-card"]:hover {{
+    border-color: {tint(GREEN, 0.55)};
+    transform: translateY(-3px);
+    box-shadow: 0 16px 34px rgba(0,0,0,0.45);
 }}
 [class*="st-key-door-card"] button {{
     width: 100%;
     background: transparent;
     border: none;
     color: {TEXT};
-    font-family: {DISPLAY}; font-weight: 700; font-size: 22px;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    padding: 10px 6px 4px 6px;
+    font-family: {DISPLAY}; font-weight: 700; font-size: 24px;
+    letter-spacing: 0.09em; text-transform: uppercase;
+    padding: 8px 6px 4px 6px;
 }}
 [class*="st-key-door-card"] button:hover {{
     color: {GREEN};
@@ -581,7 +620,7 @@ def _nav_to(page: str) -> None:
 
 
 def front_page() -> None:
-    """Magazine-cover landing: headline numbers plus doors to every view."""
+    """Magazine-cover landing in the splash's open-air poster language."""
     data = load_shots()
     shots_count = int((~data["is_penalty"].fillna(False)).sum())
     matches_count = int(data["match_id"].nunique())
@@ -591,31 +630,36 @@ def front_page() -> None:
     except (OSError, KeyError, json.JSONDecodeError):
         test_auc = "0.796"
 
-    hero("Front Page")
-
-    headline_stats = [
+    logo = ASSETS_DIR / "logo.svg"
+    logo_dot = (
+        f'<img src="data:image/svg+xml;base64,'
+        f'{base64.b64encode(logo.read_bytes()).decode()}" width="26" height="26" alt="">'
+        if logo.exists() else ""
+    )
+    stat_cells = [
         ("SHOTS", f"{shots_count:,}"),
         ("MATCHES", f"{matches_count}"),
         ("COMPETITIONS", "3"),
         ("TEST AUC", test_auc),
     ]
     cells = "".join(
-        f"""<div style="flex:1 1 0; min-width:120px;">
-<div style="font-family:{DISPLAY}; font-weight:700; font-size:48px; line-height:1;
- letter-spacing:1px; color:{TEXT};">{value}</div>
-<div style="font:600 10px/2.2 {BODY}; letter-spacing:0.18em; text-transform:uppercase;
- color:{TEXT_DIM};">{label}</div>
-</div>"""
-        for label, value in headline_stats
+        f"""<div class="cell"><div class="num">{value}</div><div class="lbl">{label}</div></div>"""
+        for label, value in stat_cells
     )
     st.markdown(
-        f"""<div style="display:flex; gap:22px; align-items:flex-start;">
-{cells}
+        f"""<div class="piq-page-head">
+  <div class="piq-page-brand">{logo_dot}<span>SHOTWORTH · xG INTELLIGENCE</span></div>
+  <div class="piq-giant">SHOT <span class="ghost">WORTH</span></div>
+  <div class="piq-rule-sweep"></div>
+  <p class="piq-page-sub">Every shot has a price. {shots_count:,} real attempts from
+  {matches_count} matches of StatsBomb Open Data, priced by a transparent model —
+  an honest audit for every number that follows.</p>
+  <div class="piq-page-stats">{cells}</div>
 </div>""",
         unsafe_allow_html=True,
     )
 
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
     section("1", "Pick a door", "pitch")
     doors = [
         ("Shot Map", "pitch", "Every one of the 12,241 shots on a live pitch, size and colour = xG."),
@@ -625,24 +669,32 @@ def front_page() -> None:
         ("Beat the Model", "bolt", "Five unseen shots, your odds vs the model's — log loss decides."),
         ("Team & Player Insights", "users", "Head-to-head radar, scout cards, zones and manager recommendations."),
     ]
-    door_index = 0
-    for row_start in range(0, len(doors), 2):
+    for door_row_start in range(0, len(doors), 2):
         pair = st.columns(2, gap="medium")
-        for slot, (page_name, page_icon, blurb) in zip(pair, doors[row_start:row_start + 2]):
+        for slot, door_number, (page_name, page_icon, blurb) in zip(
+            pair,
+            range(door_row_start + 1, door_row_start + 3),
+            doors[door_row_start:door_row_start + 2],
+        ):
             with slot:
-                with st.container(key=f"door-card-{door_index}"):
-                    door_index += 1
-                    slot.button(
+                with st.container(key=f"door-card-{door_number - 1}"):
+                    st.markdown(
+                        f"""<div class="piq-door-toprow">
+<span class="piq-door-idx">0{door_number}</span>
+<span class="piq-door-arrow">{icon('arrow', 14)}</span>
+</div>""",
+                        unsafe_allow_html=True,
+                    )
+                    st.button(
                         page_name,
                         on_click=_nav_to,
                         kwargs={"page": page_name},
                         use_container_width=True,
                     )
-                    slot.caption(blurb)
-    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    st.caption(blurb)
     st.caption(
-        "All numbers on this cover are computed live from the audited pipeline — "
-        "the model never sees StatsBomb xG as an input and penalties are excluded."
+        "All numbers on this cover are computed live from the audited pipeline — the "
+        "model never sees StatsBomb xG as an input and penalties are excluded."
     )
 
 
