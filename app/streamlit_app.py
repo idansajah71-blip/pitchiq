@@ -1014,7 +1014,7 @@ def timeline_page() -> None:
             ]
             cum = part.groupby("minute")["shotworth_xg"].sum().cumsum()
             xs, ys = (list(cum.index), list(cum.values)) if len(cum) else ([0], [0.0])
-            fig.add_trace(
+            race_fig.add_trace(
                 go.Scatter(
                     x=xs, y=ys, mode="lines", legendgroup=team,
                     name=f"{team} — ShotWorth",
@@ -1025,7 +1025,7 @@ def timeline_page() -> None:
             )
             sb = part.groupby("minute")["xg_statsbomb"].sum().cumsum()
             sbx, sby = (list(sb.index), list(sb.values)) if len(sb) else ([0], [0.0])
-            fig.add_trace(
+            race_fig.add_trace(
                 go.Scatter(
                     x=sbx, y=sby, mode="lines", showlegend=False,
                     legendgroup=team, hoverinfo="skip",
@@ -1037,7 +1037,7 @@ def timeline_page() -> None:
             if not goal_pts.empty:
                 gx = goal_pts["minute"].astype(int).tolist()
                 gy = [float(cum.loc[m]) if m in cum.index else 0.0 for m in gx]
-                fig.add_trace(
+                race_fig.add_trace(
                     go.Scatter(
                         x=gx, y=gy, mode="markers", legendgroup=team,
                         name=f"{team} — goals",
@@ -1047,7 +1047,7 @@ def timeline_page() -> None:
                         hovertemplate="<b>%{customdata[0]}</b> scores · xG %{customdata[1]}<extra></extra>",
                     )
                 )
-        fig.update_layout(
+        race_fig.update_layout(
             template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             hoverlabel=HOVERLABEL, font=dict(family=BODY, color=TEXT_DIM),
             xaxis=dict(title="Minute", range=[0, max_minute + 2], gridcolor="#1a2434", zeroline=False,
