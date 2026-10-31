@@ -12,6 +12,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "streamlit_app.py"
 PAGES = [
     "Shot Map",
+    "Match Timeline",
     "xG Estimator",
     "Model Evaluation",
     "Team & Player Insights",

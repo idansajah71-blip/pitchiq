@@ -44,6 +44,7 @@ CREDIT = (
 
 page_titles: dict[str, str] = {
     "Shot Map": "Shot Map — the quality of every shot",
+    "Match Timeline": "Match Timeline — the xG race, replayed minute by minute",
     "xG Estimator": "xG Estimator — live goal probability",
     "Model Evaluation": "Model Evaluation — how honest is it",
     "Team & Player Insights": "Team & Player Insights — leaderboards & recommendations",
@@ -57,20 +58,27 @@ page_posters: dict[str, dict[str, str]] = {
                  "Size & colour = xG: the bigger and the greener, the better the chance.",
         asset="hero_shotmap.png",
     ),
+    "Match Timeline": dict(
+        index="B", word_1="MATCH", word_2="TIMELINE",
+        subtitle="Replay any of the 479 matches like a live broadcast: the xG race "
+                 "builds minute by minute, goals land on the curve, and each chance "
+                 "is priced the moment it happens.",
+        asset="hero_timeline.png",
+    ),
     "xG Estimator": dict(
-        index="B", word_1="xG", word_2="ESTIMATOR",
+        index="C", word_1="xG", word_2="ESTIMATOR",
         subtitle="Place any shot, in any situation — the goal probability is scored "
                  "in real time by the same model trained on real matches.",
         asset="hero_estimator.png",
     ),
     "Model Evaluation": dict(
-        index="C", word_1="MODEL", word_2="AUDIT",
+        index="D", word_1="MODEL", word_2="AUDIT",
         subtitle="A match-grouped holdout with no leakage, probability metrics that "
                  "do not fake accuracy, and StatsBomb xG scored on identical data.",
         asset="hero_evaluation.png",
     ),
     "Team & Player Insights": dict(
-        index="D", word_1="TEAM", word_2="INSIGHT",
+        index="E", word_1="TEAM", word_2="INSIGHT",
         subtitle="Leaderboards scoped by player–team–competition, zone patterns and "
                  "manager recommendations with labelled assumptions — not causal claims.",
         asset="hero_insights.png",
@@ -624,6 +632,178 @@ def shot_map_page() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 1b. Match timeline (xG race + live replay)
+# ---------------------------------------------------------------------------
+
+
+def timeline_page() -> None:
+    """Broadcast-style cumulative xG race for one match, replayable minute by minute."""
+    import plotly.graph_objects as go
+
+    hero("Match Timeline")
+    data = load_shots()
+
+    # Match catalog: most eventful matches first (by total PitchIQ xG).
+    totals = data.groupby("match_id")["pitchiq_xg"].sum().sort_values(ascending=False)
+    teams_by_match = data.groupby("match_id")["team"].agg(
+        lambda s: s.astype(str).value_counts().index.tolist()
+    )
+    shot_counts = data["match_id"].value_counts()
+
+    labels: list[str] = []
+    match_ids: list[Any] = []
+    for match_id, total in totals.items():
+        teams_lbl = teams_by_match.get(match_id, [])
+        label = "  vs  ".join(teams_lbl[:2]) if len(teams_lbl) >= 2 else str(teams_lbl[0])
+        labels.append(f"{label}   ·   {shot_counts[match_id]} shots, xG {total:.1f}")
+        match_ids.append(match_id)
+    if not labels:
+        st.info("No matches available in the features table.")
+        return
+
+    pick = st.selectbox("Pick a match", labels, index=0)
+    md = data[data["match_id"] == match_ids[labels.index(pick)]].sort_values(
+        ["minute", "second"]
+    ).reset_index(drop=True)
+    teams = [str(t) for t in md["team"].astype(str).value_counts().index[:2]]
+    if not teams:
+        st.info("This match has no recorded shots in the features table.")
+        return
+    colors = {teams[0]: GREEN}
+    if len(teams) > 1:
+        colors[teams[1]] = RED
+    max_minute = int(md["minute"].max())
+
+    ss = st.session_state
+    ss.setdefault("mt_playing", False)
+    ss.setdefault("mt_minute", max_minute)
+
+    # Replay controls live outside the fragment so pressing them always
+    # triggers a full script run (needed to mount/unmount the timer).
+    ctl = st.columns([1, 1, 6])
+    replaying = bool(ss["mt_playing"])
+    if ctl[0].button("Replay from 0'", type="secondary" if replaying else "primary"):
+        ss["mt_playing"] = True
+        ss["mt_minute"] = 0
+        st.rerun()
+    if ctl[1].button("Jump to full match", disabled=not replaying):
+        ss["mt_playing"] = False
+        ss["mt_minute"] = max_minute
+        st.rerun()
+    st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
+
+    def race_render(current: int, live: bool) -> None:
+        """Draw scoreline tiles, the masked xG race and the event feed."""
+        upto = md[md["minute"] <= current]
+
+        tiles = st.columns([1, 1.35, 1.35, 1.1])
+        tiles[0].metric("Minute", f"{current}'")
+        for i, team in enumerate(teams[:2]):
+            part = upto[upto["team"].astype(str) == team]
+            goals = int(part["is_goal"].sum())
+            xg = float(part.loc[~part["is_penalty"].fillna(False), "pitchiq_xg"].sum())
+            tiles[i + 1].metric(
+                team,
+                f"{xg:.2f} xG",
+                delta=f"{goals} goals · {len(part)} shots",
+                delta_color="off",
+            )
+        if live:
+            tiles[3].metric("Mode", "LIVE")
+
+        fig = go.Figure()
+        for team in teams:
+            color = colors[team]
+            part = upto[
+                (upto["team"].astype(str) == team)
+                & (~upto["is_penalty"].fillna(False))
+            ]
+            cum = part.groupby("minute")["pitchiq_xg"].sum().cumsum()
+            xs, ys = (list(cum.index), list(cum.values)) if len(cum) else ([0], [0.0])
+            fig.add_trace(
+                go.Scatter(
+                    x=xs, y=ys, mode="lines", legendgroup=team,
+                    name=f"{team} — PitchIQ",
+                    line=dict(shape="hv", width=2.6, color=color),
+                    customdata=xs,
+                    hovertemplate=f"<b>{team}</b><br>Minute %{{x}}'<br>Cumulative PitchIQ xG %{{y:.2f}}<extra></extra>",
+                )
+            )
+            sb = part.groupby("minute")["xg_statsbomb"].sum().cumsum()
+            sbx, sby = (list(sb.index), list(sb.values)) if len(sb) else ([0], [0.0])
+            fig.add_trace(
+                go.Scatter(
+                    x=sbx, y=sby, mode="lines", showlegend=False,
+                    legendgroup=team, hoverinfo="skip",
+                    line=dict(shape="hv", width=1.3, color=color, dash="dot"),
+                    opacity=0.55,
+                )
+            )
+            goal_pts = part[part["is_goal"]]
+            if not goal_pts.empty:
+                gx = goal_pts["minute"].astype(int).tolist()
+                gy = [float(cum.loc[m]) if m in cum.index else 0.0 for m in gx]
+                fig.add_trace(
+                    go.Scatter(
+                        x=gx, y=gy, mode="markers", legendgroup=team,
+                        name=f"{team} — goals",
+                        marker=dict(symbol="star", size=13, color=color,
+                                    line=dict(width=1.2, color="#0b0e14")),
+                        customdata=[[str(p), f"{float(x):.2f}"] for p, x in zip(goal_pts["player"].astype(str), goal_pts["pitchiq_xg"])],
+                        hovertemplate="<b>%{customdata[0]}</b> scores · xG %{customdata[1]}<extra></extra>",
+                    )
+                )
+        fig.update_layout(
+            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            hoverlabel=HOVERLABEL, font=dict(family=BODY, color=TEXT_DIM),
+            xaxis=dict(title="Minute", range=[0, max_minute + 2], gridcolor="#1a2434", zeroline=False,
+                       dtick=15),
+            yaxis=dict(title="Cumulative xG", gridcolor="#1a2434", zeroline=False),
+            height=390, margin=dict(l=52, r=16, t=18, b=44),
+            legend=dict(orientation="h", y=1.08, x=0, bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
+        )
+
+        with st.container(key="timeline-panel"):
+            st.plotly_chart(fig, width="stretch",
+                            config=dict(displayModeBar=False, displaylogo=False))
+        st.caption(
+            "Solid lines = cumulative PitchIQ xG. Dotted lines = StatsBomb benchmark "
+            "on the same shots (shown for context only). Stars = goals. Penalties are "
+            "excluded from the PitchIQ curve — a 12-yard one-on-one is scored separately."
+        )
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        if upto.empty:
+            st.caption("Kick-off — no shots yet.")
+        else:
+            recent = upto.tail(5).iloc[::-1]
+            chips = "".join(
+                f'<span class="piq-chip{" solid" if row.is_goal else ""}">'
+                f'{int(row.minute)}&#39; · {str(row.player)[:22]} · '
+                f'{float(row.pitchiq_xg):.2f} xG · '
+                f'{"GOAL" if row.is_goal else str(row.outcome)[:12]}'
+                f'</span>'
+                for row in recent.itertuples()
+            )
+            st.markdown(f'<div class="piq-crumbs">{chips}</div>', unsafe_allow_html=True)
+
+    if ss["mt_playing"]:
+        @st.fragment(run_every=0.8)
+        def mt_replay() -> None:
+            nxt = min(int(st.session_state.get("mt_minute", 0)) + 1, max_minute)
+            st.session_state["mt_minute"] = nxt
+            if nxt >= max_minute:
+                st.session_state["mt_playing"] = False
+            race_render(int(st.session_state["mt_minute"]), live=nxt < max_minute)
+
+        mt_replay()
+    else:
+        race_render(int(ss["mt_minute"]), live=False)
+    if "mt_minute" in ss and int(ss["mt_minute"]) < max_minute and not ss["mt_playing"]:
+        ctl[2].caption("Replay paused mid-match — press “Jump to full match” or hit Replay again.")
+
+
+# ---------------------------------------------------------------------------
 # 2. xG estimator
 # ---------------------------------------------------------------------------
 
@@ -1161,6 +1341,8 @@ def main() -> None:
 
     if page == "Shot Map":
         shot_map_page()
+    elif page == "Match Timeline":
+        timeline_page()
     elif page == "xG Estimator":
         estimator_page()
     elif page == "Model Evaluation":
