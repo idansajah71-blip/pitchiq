@@ -34,6 +34,8 @@ lead directly to concrete instructions.
 
 ## What it does
 
+0. **Poster splash** — every fresh visit opens on a magazine-style poster with
+   live headline numbers before fading into the app.
 1. **Shot Map** — every shot on an interactive pitch; size/colour = xG;
    hover for player, minute, context and outcome.
 2. **Match Timeline** — replay any of the 479 matches like a broadcast: the
@@ -53,6 +55,9 @@ lead directly to concrete instructions.
    efficiency, and coaching hypotheses. Creator counts mean
    key-pass-linked shots, not the official assist total; rankings are scoped by
    team and competition.
+7. **Regression watchlist** — players likely to cool down (finishing far
+   above xG) and undervalued finishers (high shot quality, low conversion so
+   far), framed as labelled scouting flags.
 
 ## Results (regenerated with the audited pipeline, Oct 29 2026)
 

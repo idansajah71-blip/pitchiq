@@ -11,12 +11,15 @@ Every shot counts as one in a basic box score, but chances differ dramatically. 
 ShotWorth turns about 12,000 StatsBomb Open Data shots from the Premier League 2015/16, La Liga 2019/20 and the 2022 World Cup into a transparent, coach-facing expected-goals (xG) workflow. It uses pre-shot context such as distance, angle, shot type, and pressure, plus defender/goalkeeper positioning when a freeze-frame is available (missing frames are flagged). Match-grouped splits keep shots from one match together. Penalties are excluded from model training and handled separately in the shot map.
 
 ## Features
+- **Poster splash:** every fresh visitor opens on a full-screen magazine-style poster with live headline numbers, then the app fades in underneath.
 - **Shot Map:** explore shots by team, player, context and outcome.
 - **Match Timeline:** replay any match — cumulative xG race per minute, goal markers, benchmark overlay and an auto-playing live replay mode.
 - **xG Estimator:** change shot location and context to see how estimated scoring probability responds, with a one-at-a-time "Why this xG?" counterfactual explainer.
 - **Model Evaluation:** compare a transparent Logistic Regression baseline with tree-model experiments and StatsBomb's xG benchmark; inspect discrimination, probability error and calibration.
 - **Beat the Model:** price five unseen holdout shots yourself; log loss grades you against the model on identical data.
-- **Insights:** team head-to-head radar, an auto-generated scout card, shot selection by zone, player and creator summaries, and assumption-labelled coaching scenarios.
+- **Insights:** team head-to-head radar, an auto-generated scout card, shot selection by zones, player and creator summaries, and assumption-labelled coaching scenarios.
+- **Regression watchlist:** players finishing far above xG (likely cool-down candidates) and high-quality-but-unsung finishers (undervalued, breakout candidates) — framed as scouting flags, not guarantees.
+- **Model card:** `docs/MODEL_CARD.md` documents data, features, splits, metrics, intended use and limitations so every number is traceable.
 
 ## Practical value
 ShotWorth is designed to help analysts ask better follow-up questions: are low-quality attempts concentrated in particular zones, do patterns persist across samples, and which clips should a coach review? Counter-attack differences are presented as descriptive associations rather than causal claims. Scenario-based xG changes are assumptions, not guaranteed extra goals. Player leaderboard rows are separated by team and competition, avoiding club/national-team totals being shown under one team.
