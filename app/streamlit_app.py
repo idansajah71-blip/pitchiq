@@ -1288,7 +1288,93 @@ def insights_page() -> None:
             st.markdown("##### Team shot selection")
             st.image(str(zone_fig))
 
-    section("3", "Most valuable zones", "zone")
+    section("3", "Head to head", "users")
+    team_list = sorted(team_stats["team"].astype(str).unique())
+    volume_pair = (
+        team_stats.sort_values("matches", ascending=False)["team"].astype(str).tolist()[:2]
+        if len(team_stats) >= 2 else team_list[:1] * 2
+    )
+    hA, hB = st.columns(2)
+    with hA:
+        team_a = st.selectbox("Team A", team_list, index=team_list.index(volume_pair[0]) if volume_pair[0] in team_list else 0)
+    with hB:
+        team_b = st.selectbox(
+            "Team B", team_list,
+            index=(team_list.index(volume_pair[1]) if volume_pair[1] in team_list else 0),
+        )
+    if team_a == team_b and len(team_list) > 1:
+        team_b = next(t for t in team_list if t != team_a)
+
+    AXIS_LABELS = [
+        "Shots per match", "xG per match", "xG per shot",
+        "Goals − xG per match", "Low-quality shot share", "xG conceded per match",
+    ]
+
+    def team_axes(name: str) -> list[float]:
+        r = team_stats.loc[team_stats["team"].astype(str) == name].iloc[0]
+        matches = max(float(r["matches"]), 1.0)
+        return [
+            float(r["shots_for"]) / matches,
+            float(r["xg_for"]) / matches,
+            float(r["xg_per_shot_for"]),
+            (float(r["goals_for"]) - float(r["xg_for"])) / matches,
+            float(r["low_quality_share"]),
+            float(r["xg_against"]) / matches,
+        ]
+
+    axes_a, axes_b = team_axes(team_a), team_axes(team_b)
+    radar_vals_a, radar_vals_b = [], []
+    for va, vb in zip(axes_a, axes_b):
+        lo, hi = min(va, vb), max(va, vb)
+        span = (hi - lo) or 1e-9
+        radar_vals_a.append(30 + (va - lo) / span * 70)
+        radar_vals_b.append(30 + (vb - lo) / span * 70)
+
+    import plotly.graph_objects as go
+
+    radar_fig = go.Figure()
+    for name, values, color in ((team_a, radar_vals_a, GREEN), (team_b, radar_vals_b, RED)):
+        radar_fig.add_trace(go.Scatterpolar(
+            r=values, theta=AXIS_LABELS, name=name, fill="toself", opacity=0.16,
+            line=dict(color=color, width=2.4),
+            customdata=[[name] * len(AXIS_LABELS)],
+            hovertemplate=f"<b>{name}</b><br>%{{theta}}<extra></extra>",
+        ))
+    radar_fig.update_layout(
+        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=BODY, color=TEXT_DIM), hoverlabel=HOVERLABEL,
+        polar=dict(
+            radialaxis=dict(range=[0, 100], showticklabels=False, ticks="",
+                            gridcolor="#1a2434", linecolor="#1a2434"),
+            angularaxis=dict(gridcolor="#1a2434", linecolor="#1a2434"),
+        ),
+        height=390, margin=dict(l=30, r=30, t=26, b=26),
+        legend=dict(orientation="h", y=1.12, x=0, bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
+        showlegend=True,
+    )
+    radar_col, read_col = st.columns([1.35, 1], gap="large")
+    with radar_col:
+        st.plotly_chart(radar_fig, width="stretch")
+    with read_col:
+        def higher(a: float, b: float) -> str:
+            return team_a if a >= b else team_b
+        verdicts = "".join([
+            f"<div class='sub'>• <b>{AXIS_LABELS[2]}</b>: {higher(axes_a[2], axes_b[2])} picks better shots "
+            f"({max(axes_a[2], axes_b[2]):.3f} vs {min(axes_a[2], axes_b[2]):.3f} xG per attempt).</div>",
+            f"<div class='sub'>• <b>{AXIS_LABELS[3]}</b>: {higher(axes_a[3], axes_b[3])} overperforms its xG "
+            f"({max(axes_a[3], axes_b[3]):+.2f} per match) — finishing, luck or keeper errors.</div>",
+            f"<div class='sub'>• <b>{AXIS_LABELS[4]}</b>: {higher(axes_a[4], axes_b[4])} leans more on "
+            f"low-quality shots ({max(axes_a[4], axes_b[4]):.0%} of attempts under 0.05 xG).</div>",
+            f"<div class='sub'>• <b>{AXIS_LABELS[5]}</b>: {higher(axes_a[5], axes_b[5])} concedes more "
+            f"({max(axes_a[5], axes_b[5]):.2f} xG per match faced) — the attack has room.</div>",
+        ])
+        st.markdown(
+            f"""<div class="piq-band"><div class="lead">Read of the pairing</div>{verdicts}
+<div class="sub" style="margin-top:6px">Every spoke is rescaled between the two teams (winner of the spoke = outer edge) — it compares style, not absolute strength.</div></div>""",
+            unsafe_allow_html=True,
+        )
+
+    section("4", "Most valuable zones", "zone")
     zone_fig = FIGURES_DIR / "fig9_zone_map.png"
     left_zone, right_zone = st.columns([1.4, 1], gap="large")
     with left_zone:
@@ -1309,6 +1395,75 @@ def insights_page() -> None:
             },
         )
         st.caption("Mirrored lateral bands are paired together since the audit; the rows above are the best combined pairs.")
+
+    section("5", "Scout card", "target")
+    league_xg_ps = float(team_stats["xg_per_shot_for"].mean())
+    league_lowq = float(team_stats["low_quality_share"].mean())
+    scout_team = st.selectbox("Scout which team?", team_list, index=team_list.index(volume_pair[0]) if volume_pair[0] in team_list else 0)
+    srow = team_stats.loc[team_stats["team"].astype(str) == scout_team].iloc[0]
+    smatches = max(float(srow["matches"]), 1.0)
+    sq = qualified[qualified["team"].astype(str) == scout_team]
+    outlet = sq.sort_values("shots", ascending=False).iloc[0] if not sq.empty else None
+    if "assists" in qualified.columns and qualified["assists"].notna().any():
+        provq = qualified[(qualified["team"].astype(str) == scout_team) & (qualified["assists"] >= MIN_ASSISTS)]
+        provider = provq.sort_values("assisted_xg", ascending=False).iloc[0] if not provq.empty else None
+    else:
+        provider = None
+
+    style_read = (
+        "quality-first shot selection" if float(srow["xg_per_shot_for"]) >= league_xg_ps + 0.005
+        else "patient volume shooter" if float(srow["xg_per_shot_for"]) >= league_xg_ps - 0.005
+        else "shot-happy from distance; volume over quality"
+    )
+
+    def md_line() -> str:
+        lines = [
+            f"## Scout card — {scout_team}",
+            f"- Matches: {int(srow['matches'])} · Shots: {int(srow['shots_for'])} · xG: {float(srow['xg_for']):.1f} · xG/shot: {float(srow['xg_per_shot_for']):.3f}",
+            f"- Shot diet: {float(srow['low_quality_share']):.0%} of attempts under 0.05 xG, {float(srow['long_shot_share']):.0%} from outside the box (league means: {league_lowq:.0%}, xG/shot {league_xg_ps:.3f})",
+        ]
+        if outlet is not None:
+            lines.append(f"- Main outlet: {outlet.name} — {int(outlet['shots'])} shots, {int(outlet['goals'])} goals, {float(outlet['xg_pitchiq']):.1f} xG, {float(outlet['goals_minus_xg']):+.2f} finishing over xG")
+        if provider is not None:
+            lines.append(f"- Main creator: {provider.name} — {int(provider['assists'])} assisted shots worth {float(provider['assisted_xg']):.1f} xG")
+        lines.append(f"- Defensive frame: {float(srow['shots_against']) / smatches:.1f} shots and {float(srow['xg_against']) / smatches:.2f} xG faced per match; total differential {float(srow['xg_diff']):+.1f}")
+        lines.append(f"- Style read: {style_read}")
+        return "\n".join(lines)
+
+    chips = "".join(
+        f'<span class="piq-chip">{int(srow["matches"])} matches</span>'
+        f'<span class="piq-chip">{int(srow["shots_for"])} shots</span>'
+        f'<span class="piq-chip">{float(srow["xg_for"]):.1f} xG</span>'
+        f'<span class="piq-chip">{float(srow["xg_per_shot_for"]):.3f} xG/shot</span>'
+        f'<span class="piq-chip">{float(srow["xg_diff"]):+.1f} differential</span>'
+    )
+    bullets = [
+        f"<div class='sub'>• <b>Shot diet</b> — {float(srow['low_quality_share']):.0%} of attempts under 0.05 xG, "
+        f"{float(srow['long_shot_share']):.0%} from outside the box. League means: {league_lowq:.0%} and {league_xg_ps:.3f} xG/shot.</div>",
+        f"<div class='sub'>• <b>Style read</b> — {style_read}.</div>",
+        f"<div class='sub'>• <b>Back line</b> — {float(srow['shots_against']) / smatches:.1f} shots and "
+        f"{float(srow['xg_against']) / smatches:.2f} xG faced per match; overall differential {float(srow['xg_diff']):+.1f} — "
+        f"attack through them, not only over them.</div>",
+    ]
+    if outlet is not None:
+        bullets.insert(1, f"<div class='sub'>• <b>Main outlet</b> — {outlet.name}: {int(outlet['shots'])} shots, "
+                          f"{int(outlet['goals'])} goals, {float(outlet['xg_pitchiq']):.1f} xG, finishing "
+                          f"{float(outlet['goals_minus_xg']):+.2f} above expectation.</div>")
+    if provider is not None:
+        bullets.insert(2 if outlet is not None else 2, f"<div class='sub'>• <b>Main creator</b> — {provider.name}: "
+                          f"{int(provider['assists'])} assisted shots worth {float(provider['assisted_xg']):.1f} xG.</div>")
+    st.markdown(
+        f"""<div class="piq-band" style="background:linear-gradient(102deg,{NAVY} 0%,{NAVY_2} 55%, rgba(28,94,54,0.5) 110%)">
+<div class="lead">SCOUT CARD · {scout_team}</div>
+<div class="piq-crumbs">{chips}</div>
+<div style="height:4px"></div>
+{''.join(bullets)}
+</div>""",
+        unsafe_allow_html=True,
+    )
+    st.download_button("Download card as Markdown", data=md_line().encode("utf-8"),
+                       file_name=f"scout_card_{scout_team.lower().replace(' ', '_')}.md",
+                       mime="text/markdown")
 
     with st.expander("Manager recommendations (from the model, every number labelled)", expanded=True):
         st.markdown(load_markdown("coach_recommendations.md"))
