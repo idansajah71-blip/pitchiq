@@ -36,13 +36,21 @@ lead directly to concrete instructions.
 
 1. **Shot Map** — every shot on an interactive pitch; size/colour = xG;
    hover for player, minute, context and outcome.
-2. **xG Estimator** — pick position + body part + context, get the goal
-   probability in real time, with distance/angle and a goal-mouth visual.
-3. **Model Evaluation** — honest metrics (ROC-AUC, log loss, Brier,
+2. **Match Timeline** — replay any of the 479 matches like a broadcast: the
+   cumulative xG race builds minute by minute, goals land as stars on the
+   curve, the StatsBomb benchmark is dotted alongside, and a replay mode
+   auto-plays the whole match with a live event feed.
+3. **xG Estimator** — pick position + body part + context, get the goal
+   probability in real time, with distance/angle, a goal-mouth visual and a
+   one-at-a-time *"Why this xG?"* counterfactual breakdown of each factor.
+4. **Model Evaluation** — honest metrics (ROC-AUC, log loss, Brier,
    calibration curves) explained in plain language, benchmarked against
    StatsBomb's own xG on the same held-out matches.
-4. **Insight Engine** — player/creator/finisher leaderboards, team shot
-   selection, zone efficiency, and coaching hypotheses. Creator counts mean
+5. **Beat the Model** — a log-loss duel: price five unseen holdout shots
+   yourself and find out whether you out-score the model on identical data.
+6. **Insight Engine** — player/creator/finisher leaderboards, team
+   head-to-head radar, an auto-generated downloadable scout card, zone
+   efficiency, and coaching hypotheses. Creator counts mean
    key-pass-linked shots, not the official assist total; rankings are scoped by
    team and competition.
 

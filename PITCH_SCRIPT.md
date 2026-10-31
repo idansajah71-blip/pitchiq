@@ -11,7 +11,7 @@ tembakan dari 40 yard bisa punya peluang yang sangat berbeda dengan tap-in
 satu sentuhan. PitchIQ mengubah angka mentah itu menjadi
 keputusan yang bisa dilakukan pelatih."
 
-**(0:20–0:55) Data — halaman Evaluasi Model**
+**(0:20–0:50) Data — halaman Model Evaluation**
 
 "Kami memakai 12 ribu tembakan nyata dari StatsBomb Open Data: Premier League
 2015/16, La Liga 2019/20, dan Piala Dunia 2022 — total 479 pertandingan. Setiap
@@ -22,7 +22,7 @@ hasil akhir, end location, atau angka xG bawaan dari StatsBomb. Split kami
 dikelompokkan per pertandingan supaya tidak ada kebocoran antara training dan
 testing."
 
-**(0:55–1:30) Model — kurva kalibrasi**
+**(0:50–1:25) Model — kurva kalibrasi**
 
 "Model deployment kami adalah regresi logistik yang transparan. Dashboard
 membandingkan ROC-AUC, log loss, Brier score, dan kalibrasi dengan eksperimen
@@ -32,24 +32,36 @@ fitur yang jelas, dan analisis yang membantu menentukan pertanyaan lanjutan
 untuk pelatih. Angka di demo ini berasal dari laporan post-audit yang
 dihasilkan ulang (Okt 2026), bukan dari arsip lama."
 
-**(1:30–1:50) Demo inti — halaman xG Estimator**
+**(1:25–1:45) Demo inti — halaman xG Estimator**
 
 "Lihat Estimator ini: geser posisi tembakan dari tengah kotak ke arah sayap.
 Probabilitas gol turun secara real-time, dan segitiga sudut gawang ikut
-menyempit. Semua orang langsung paham alasannya: jarak, sudut, dan bek di
-jalur tembakan."
+menyempit. Panel 'Why this xG?' lalu menjelaskan kontribusi tiap faktor
+satu per satu — jarak, sudut, bagian tubuh — jadi angkanya tidak kotak-katik."
 
-**(1:50–2:35) Insight — halaman Insight Pemain & Tim**
+**(1:45–2:10) Innovation — halaman Match Timeline + replay**
 
-"Insight Engine memeriksa bagian tembakan bernilai rendah, sampel tembakan
-jarak jauh, play pattern, dan zona yang paling produktif. Skenario penggantian
-peluang rendah-xG adalah kalkulasi berbasis asumsi, bukan jaminan tambahan gol.
-Perbedaan xG antar-play-pattern kami sajikan sebagai asosiasi deskriptif, bukan
-bukti sebab-akibat. Zona juga dibandingkan dengan memasangkan band lateral yang
-simetris di kedua sisi pusat gawang. Angka spesifik di bagian ini diambil dari
-laporan yang baru dihasilkan ulang, bukan arsip lama."
+"Ini fitur favorit kami: 479 pertandingan bisa diputar ulang seperti siaran
+bola. Kurva xG kumulatif kedua tim dibangun menit demi menit, benchmark
+StatsBomb diganjal sebagai garis putus-putus, dan mode replay memainkan
+seluruh pertandingan otomatis dengan feed kejadian langsung."
 
-**(2:35–2:50) Penutup**
+**(2:10–2:30) Gamification — halaman Beat the Model**
+
+"Pengunjung juga bisa menantang modelnya: lima tembakan dari holdout yang
+tidak pernah dilatih, kamu tebak peluangnya, lalu log loss menentukan siapa
+yang lebih akurat — kamu atau model. Setiap angka di sini berasal dari
+split test yang aman, bukan data latih."
+
+**(2:30–2:50) Insight — halaman Team & Player Insights**
+
+"Insight Engine memeriksa bagian tembakan bernilai rendah, play pattern, dan
+zona paling produktif — pakai head-to-head radar antar tim dan scout card
+yang bisa diunduh. Skenario penggantian peluang rendah-xG tetap kami labeli
+sebagai asumsi, bukan jaminan tambahan gol. Angka spesifik diambil dari
+laporan post-audit yang baru dihasilkan ulang, bukan arsip lama."
+
+**(2:50–3:00) Penutup**
 
 "PitchIQ — xG transparan, evaluasi yang jujur, dan rekomendasi berbasis angka.
 Semua itu dibangun dari open data StatsBomb dengan kredit penuh, dan kodenya

@@ -12,9 +12,11 @@ PitchIQ turns about 12,000 StatsBomb Open Data shots from the Premier League 201
 
 ## Features
 - **Shot Map:** explore shots by team, player, context and outcome.
-- **xG Estimator:** change shot location and context to see how estimated scoring probability responds.
+- **Match Timeline:** replay any match — cumulative xG race per minute, goal markers, benchmark overlay and an auto-playing live replay mode.
+- **xG Estimator:** change shot location and context to see how estimated scoring probability responds, with a one-at-a-time "Why this xG?" counterfactual explainer.
 - **Model Evaluation:** compare a transparent Logistic Regression baseline with tree-model experiments and StatsBomb's xG benchmark; inspect discrimination, probability error and calibration.
-- **Insights:** review team shot selection, player and creator summaries, zone patterns, and assumption-labelled coaching scenarios.
+- **Beat the Model:** price five unseen holdout shots yourself; log loss grades you against the model on identical data.
+- **Insights:** team head-to-head radar, an auto-generated scout card, shot selection by zone, player and creator summaries, and assumption-labelled coaching scenarios.
 
 ## Practical value
 PitchIQ is designed to help analysts ask better follow-up questions: are low-quality attempts concentrated in particular zones, do patterns persist across samples, and which clips should a coach review? Counter-attack differences are presented as descriptive associations rather than causal claims. Scenario-based xG changes are assumptions, not guaranteed extra goals. Player leaderboard rows are separated by team and competition, avoiding club/national-team totals being shown under one team.
