@@ -273,7 +273,7 @@ div[data-testid="stMainBlockContainer"] {{
 
 /* Strip Streamlit framework chrome (menu, toolbar, footer, decorations) */
 header[data-testid="stHeader"] {{ background: transparent; }}
-#MainMenu, footer, div[data-testid="stDecoration"], [data-testid="stStatusWidget"] {{ visibility: hidden; }}
+#MainMenu, footer, div[data-testid="stDecoration"], [data-testid="stStatusWidget"], [data-testid="stToolbar"], [data-testid="stDeployButton"] {{ visibility: hidden; }}
 
 /* Splash atmosphere: every page lives in the same deep gradient world */
 div[data-testid="stMain"] {{
@@ -546,12 +546,12 @@ div[data-testid="stDataFrame"], div[data-testid="stExpander"] {{ animation: piqF
 .piq-page-stats {{ animation: piqRise .8s cubic-bezier(.22,1,.36,1) both; animation-delay: .46s; }}
 .piq-door-toprow {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) both; }}
 [class*="st-key-door-card"] {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) backwards; }}
-.st-key-door-card-0 {{ animation-delay: .12s; }}
-.st-key-door-card-1 {{ animation-delay: .2s; }}
-.st-key-door-card-2 {{ animation-delay: .28s; }}
-.st-key-door-card-3 {{ animation-delay: .36s; }}
-.st-key-door-card-4 {{ animation-delay: .44s; }}
-.st-key-door-card-5 {{ animation-delay: .52s; }}
+.st-key-door-card-0 {{ animation-delay: .05s; }}
+.st-key-door-card-1 {{ animation-delay: .1s; }}
+.st-key-door-card-2 {{ animation-delay: .15s; }}
+.st-key-door-card-3 {{ animation-delay: .2s; }}
+.st-key-door-card-4 {{ animation-delay: .25s; }}
+.st-key-door-card-5 {{ animation-delay: .3s; }}
 
 /* Magazine corner ticks + barcode (front page atmosphere) */
 .piq-page-head {{ position: relative; }}
