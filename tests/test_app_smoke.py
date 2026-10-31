@@ -15,6 +15,7 @@ PAGES = [
     "Match Timeline",
     "xG Estimator",
     "Model Evaluation",
+    "Beat the Model",
     "Team & Player Insights",
 ]
 

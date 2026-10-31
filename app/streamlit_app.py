@@ -47,6 +47,7 @@ page_titles: dict[str, str] = {
     "Match Timeline": "Match Timeline — the xG race, replayed minute by minute",
     "xG Estimator": "xG Estimator — live goal probability",
     "Model Evaluation": "Model Evaluation — how honest is it",
+    "Beat the Model": "Beat the Model — can you out-score it",
     "Team & Player Insights": "Team & Player Insights — leaderboards & recommendations",
 }
 
@@ -77,8 +78,14 @@ page_posters: dict[str, dict[str, str]] = {
                  "do not fake accuracy, and StatsBomb xG scored on identical data.",
         asset="hero_evaluation.png",
     ),
+    "Beat the Model": dict(
+        index="E", word_1="BEAT", word_2="MODEL",
+        subtitle="Five unseen shots from the model's untouched holdout. Price them "
+                 "yourself, then log loss settles it — you vs the model, same data.",
+        asset="hero_quiz.png",
+    ),
     "Team & Player Insights": dict(
-        index="E", word_1="TEAM", word_2="INSIGHT",
+        index="F", word_1="TEAM", word_2="INSIGHT",
         subtitle="Leaderboards scoped by player–team–competition, zone patterns and "
                  "manager recommendations with labelled assumptions — not causal claims.",
         asset="hero_insights.png",
@@ -1179,6 +1186,152 @@ def evaluation_page() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 3b. Beat the model (mini-game)
+# ---------------------------------------------------------------------------
+
+
+def quiz_page() -> None:
+    """Game mode: price five unseen holdout shots against the model, log loss decides."""
+    import plotly.graph_objects as go
+
+    hero("Beat the Model")
+    artifact = load_model()
+
+    @st.cache_resource(show_spinner="Drawing holdout shots...")
+    def _quiz_pool() -> pd.DataFrame:
+        """All non-penalty shots from the grouped test split, model-scored."""
+        from sklearn.model_selection import GroupShuffleSplit
+
+        features = load_shots()
+        X = features[FEATURE_COLUMNS]
+        y = features["is_goal"].astype(int)
+        mask = ~features["is_penalty"].fillna(False)
+        Xt, yt, groups = X.loc[mask], y.loc[mask], features.loc[mask, "match_id"]
+        splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=TEST_SPLIT_SEED)
+        _train_index, test_index = next(splitter.split(Xt, yt, groups))
+        pool = features.loc[Xt.index[test_index]].copy()
+        probs = artifact["pipeline"].predict_proba(pool[FEATURE_COLUMNS])[:, 1]
+        calibrator = artifact.get("calibrator")
+        if calibrator is not None:
+            probs = calibrator.predict(probs)
+        pool["p_model"] = probs
+        return pool
+
+    pool = _quiz_pool()
+    ss = st.session_state
+
+    head_cols = st.columns([1.2, 3])
+    if head_cols[0].button("Deal 5 new shots", type="primary"):
+        ss["bt_round"] = pool.sample(5)
+        for i in range(5):
+            ss.pop(f"bt_g_{i}", None)
+        ss.pop("bt_scored", None)
+    if "bt_round" not in ss or not len(ss["bt_round"]):
+        ss["bt_round"] = pool.sample(5)
+    head_cols[1].caption(
+        "Every deal draws from matches the model never trained on. Price the chance "
+        "in your head, we grade your log loss against the model's on the same five shots."
+    )
+
+    st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
+    round_df = ss["bt_round"]
+    for i, (_idx, shot) in enumerate(round_df.iterrows(), start=1):
+        c_info, c_guess = st.columns([3.2, 1], gap="medium")
+        with c_info:
+            st.markdown(f"##### Shot {i}")
+            chips = "".join(
+                f'<span class="piq-chip">' f"{float(shot['distance']):.0f} m</span>"
+                f'<span class="piq-chip">angle {float(shot["angle_deg"]):.0f}&#176;</span>'
+                f'<span class="piq-chip">{str(shot["body_part"])}</span>'
+                f'<span class="piq-chip">{str(shot["shot_type"])}</span>'
+                f'<span class="piq-chip">{"pressured" if bool(shot["under_pressure"]) else "no pressure"}</span>'
+                f'<span class="piq-chip">{"first-time" if bool(shot["first_time"]) else "controlled touch"}</span>'
+            )
+            st.markdown(f'<div class="piq-crumbs">{chips}</div>', unsafe_allow_html=True)
+        with c_guess:
+            st.slider("Your price (%)", 0, 100, 50, key=f"bt_g_{i}", format="%d%%")
+
+    with st.container(key="goal-panel"):
+        overview_fig = go.Figure()
+        gx = round_df["x"].astype(float)
+        gy = round_df["y"].astype(float)
+        overview_fig.add_trace(go.Scatter(
+            x=gx, y=gy, mode="markers+text", text=[str(i + 1) for i in range(len(round_df))],
+            textposition="top center", textfont=dict(color=TEXT, size=13, family=DISPLAY),
+            marker=dict(size=15, color=GREEN, opacity=0.9,
+                        line=dict(width=0.8, color="#0b0e14")),
+            customdata=[[float(d), float(a)] for d, a in zip(round_df["distance"], round_df["angle_deg"])],
+            hovertemplate="Shot #%{text}<br>%{customdata[0]:.0f} m · angle %{customdata[1]:.0f}°<extra></extra>",
+        ))
+        overview_fig.update_layout(
+            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            hoverlabel=HOVERLABEL, font=dict(family=BODY, color=TEXT_DIM),
+            shapes=PITCH_SHAPES, height=360, margin=dict(l=10, r=14, t=6, b=10),
+            xaxis=dict(range=[-3, 126], showgrid=False, zeroline=False, visible=False,
+                       scaleanchor="y", scaleratio=1.0),
+            yaxis=dict(range=[-3, 83], showgrid=False, zeroline=False, visible=False),
+        )
+        st.plotly_chart(overview_fig, width="stretch",
+                        config=dict(displayModeBar=False, displaylogo=False))
+
+    if st.button("Score this round", type="secondary"):
+        ss["bt_scored"] = True
+
+    if ss.get("bt_scored", False):
+        epsilon = 1e-6
+        outcomes = round_df["is_goal"].astype(bool).to_numpy()
+        items = []
+        for i, (_idx, shot) in enumerate(round_df.iterrows()):
+            items.append(
+                dict(
+                    i=i,
+                    p_user=min(max(st.session_state.get(f"bt_g_{i}", 50) / 100.0, epsilon), 1 - epsilon),
+                    p_model=float(shot["p_model"]),
+                    goal=bool(shot["is_goal"]),
+                )
+            )
+        ll_user = float(np.mean([-it["goal"] * np.log(it["p_user"]) - (not it["goal"]) * np.log(1 - it["p_user"]) for it in items]))
+        ll_model = float(np.mean([-it["goal"] * np.log(it["p_model"]) - (not it["goal"]) * np.log(1 - it["p_model"]) for it in items]))
+        brier_user = float(np.mean([(it["p_user"] - it["goal"]) ** 2 for it in items]))
+        brier_model = float(np.mean([(it["p_model"] - it["goal"]) ** 2 for it in items]))
+
+        section("1", "Round score", "chart")
+        lead = st.columns(4)
+        lead[0].metric("Your log loss", f"{ll_user:.3f}")
+        lead[1].metric("Model log loss", f"{ll_model:.3f}")
+        lead[2].metric("Your Brier", f"{brier_user:.3f}")
+        lead[3].metric("Model Brier", f"{brier_model:.3f}")
+        if ll_user < ll_model:
+            st.success(f"You beat the model this round: {ll_user:.3f} vs {ll_model:.3f} log loss — smaller is better.")
+        elif ll_user > ll_model:
+            st.info(f"Model wins this round: {ll_model:.3f} vs your {ll_user:.3f} log loss. Log loss punishes confident misses hardest — that's the same metric the model was trained to minimize.")
+        else:
+            st.info("Dead heat — identical log loss over these five shots.")
+
+        section("2", "The reveal", "target")
+        reveal = round_df.copy()
+        reveal.insert(0, "Shot", [f"#{k + 1}" for k in range(len(reveal))])
+        reveal["Your guess"] = [f"{int(st.session_state.get(f'bt_g_{i}', 50)):d}%" for i in range(len(reveal))]
+        reveal["Model xG"] = [f"{v:.3f}" for v in reveal["p_model"]]
+        reveal_columns = reveal[
+            ["Shot", "player", "team", "distance", "angle_deg", "body_part", "is_goal",
+             "Model xG", "Your guess"]
+        ].copy()
+        reveal_columns.columns = [
+            "Shot", "Player", "Team", "Distance (m)", "Angle (deg)", "Body part",
+            "Outcome", "Model xG", "Your guess",
+        ]
+        outcome_fmt = ["GOAL" if g else "No goal" for g in reveal_columns["Outcome"]]
+        reveal_columns["Outcome"] = outcome_fmt
+        st.dataframe(reveal_columns, width="stretch", hide_index=True)
+        st.caption(
+            "Shots come from the grouped holdout; the model never saw them in "
+            "training. Five-shot samples are noisy — deal a few rounds before "
+            "drawing conclusions."
+        )
+
+
+# ---------------------------------------------------------------------------
 # 4. Insights
 # ---------------------------------------------------------------------------
 
@@ -1570,6 +1723,8 @@ def main() -> None:
         estimator_page()
     elif page == "Model Evaluation":
         evaluation_page()
+    elif page == "Beat the Model":
+        quiz_page()
     else:
         insights_page()
 
