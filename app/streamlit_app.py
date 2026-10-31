@@ -832,6 +832,8 @@ def timeline_page() -> None:
     if len(teams) > 1:
         colors[teams[1]] = RED
     max_minute = int(md["minute"].max())
+    non_pen_xg = md.loc[~md["is_penalty"].fillna(False), "pitchiq_xg"]
+    xg_cmax = float(np.percentile(non_pen_xg, 98)) if len(non_pen_xg) else 0.5
 
     ss = st.session_state
     ss.setdefault("mt_playing", False)
@@ -870,7 +872,7 @@ def timeline_page() -> None:
         if live:
             tiles[3].metric("Mode", "LIVE")
 
-        fig = go.Figure()
+        race_fig = go.Figure()
         for team in teams:
             color = colors[team]
             part = upto[
@@ -923,12 +925,48 @@ def timeline_page() -> None:
         )
 
         with st.container(key="timeline-panel"):
-            st.plotly_chart(fig, width="stretch",
-                            config=dict(displayModeBar=False, displaylogo=False))
+            race_cols = st.columns([1.5, 1], gap="small")
+            with race_cols[0]:
+                st.plotly_chart(race_fig, width="stretch",
+                                config=dict(displayModeBar=False, displaylogo=False))
+            with race_cols[1]:
+                pitch_fig = go.Figure()
+                dots = upto[~upto["is_penalty"].fillna(False)]
+                pitch_fig.add_trace(go.Scattergl(
+                    x=dots["x"].astype(float), y=dots["y"].astype(float),
+                    mode="markers",
+                    marker=dict(
+                        size=7 + 16 * np.sqrt(dots["pitchiq_xg"].astype(float)),
+                        color=dots["pitchiq_xg"].astype(float),
+                        colorscale=XG_SCALE, cmin=0.0, cmax=max(xg_cmax, 0.05),
+                        opacity=0.85, line=dict(width=0.6, color="#0b0e14"),
+                    ),
+                    customdata=np.stack([
+                        dots["player"].astype(str).values,
+                        dots["minute"].astype(int).astype(str).values,
+                        dots["pitchiq_xg"].astype(float).values,
+                        np.where(dots["is_goal"], "GOAL", dots["outcome"].astype(str)).astype(object),
+                    ], axis=1),
+                    hovertemplate=(
+                        "<b>%{customdata[0]}</b> · %{customdata[1]}'<br>"
+                        "xG %{customdata[2]:.3f} · %{customdata[3]}<extra></extra>"
+                    ),
+                ))
+                pitch_fig.update_layout(
+                    template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    hoverlabel=HOVERLABEL, font=dict(family=BODY, color=TEXT_DIM),
+                    shapes=PITCH_SHAPES, height=392, margin=dict(l=6, r=6, t=6, b=6),
+                    xaxis=dict(range=[-3, 126], showgrid=False, zeroline=False, visible=False,
+                               scaleanchor="y", scaleratio=1.0),
+                    yaxis=dict(range=[-3, 83], showgrid=False, zeroline=False, visible=False),
+                )
+                st.plotly_chart(pitch_fig, width="stretch",
+                                config=dict(displayModeBar=False, displaylogo=False))
         st.caption(
-            "Solid lines = cumulative PitchIQ xG. Dotted lines = StatsBomb benchmark "
-            "on the same shots (shown for context only). Stars = goals. Penalties are "
-            "excluded from the PitchIQ curve — a 12-yard one-on-one is scored separately."
+            "Left: cumulative PitchIQ xG race (solid) with the StatsBomb benchmark dotted. "
+            "Right: every shot so far pops in on the pitch as the replay advances — size and "
+            "colour = xG, stars mark goals in the race. Penalties are excluded from the "
+            "PitchIQ curve and scored separately."
         )
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
