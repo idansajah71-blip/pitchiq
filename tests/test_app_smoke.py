@@ -11,6 +11,7 @@ AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "streamlit_app.py"
 PAGES = [
+    "Front Page",
     "Shot Map",
     "Match Timeline",
     "xG Estimator",

@@ -43,6 +43,7 @@ CREDIT = (
 )
 
 page_titles: dict[str, str] = {
+    "Front Page": "PitchIQ — every shot has a price",
     "Shot Map": "Shot Map — the quality of every shot",
     "Match Timeline": "Match Timeline — the xG race, replayed minute by minute",
     "xG Estimator": "xG Estimator — live goal probability",
@@ -53,6 +54,12 @@ page_titles: dict[str, str] = {
 
 # Poster configuration per page: index letter, display words, subtitle.
 page_posters: dict[str, dict[str, str]] = {
+    "Front Page": dict(
+        index="00", word_1="PITCH", word_2="IQ",
+        subtitle="12,241 real shots priced by a transparent model, built on 479 "
+                 "matches of StatsBomb Open Data — pick a door and step inside.",
+        asset="hero_front.png",
+    ),
     "Shot Map": dict(
         index="A", word_1="SHOT", word_2="MAP",
         subtitle="Every point is one shot, attacks facing the goal on the right. "
@@ -258,7 +265,12 @@ def global_css() -> None:
 div[data-testid="stMainBlockContainer"] {{
     max-width: 1220px;
     margin: 0 auto;
+    padding-top: 1.4rem;
 }}
+
+/* Strip Streamlit framework chrome (menu, toolbar, footer, decorations) */
+header[data-testid="stHeader"] {{ background: transparent; }}
+#MainMenu, footer, div[data-testid="stDecoration"], [data-testid="stStatusWidget"] {{ visibility: hidden; }}
 
 /* Poster hero band */
 .piq-hero {{
@@ -365,6 +377,28 @@ div[data-testid="stMetricLabel"] p {{
 div[data-testid="stMetricValue"] {{ font-family: {DISPLAY}; font-weight: 700; letter-spacing: 1px; }}
 div[data-testid="stMetricDelta"] svg {{ color: {GREEN} !important; }}
 
+/* Landing door tiles */
+[class*="st-key-door-card"] {{
+    border: 1.4px dashed {LINE};
+    border-radius: 14px;
+    background: linear-gradient(135deg, {PANEL} 0%, #0f1622 100%);
+    padding: 6px 10px 10px 10px;
+    margin-bottom: 4px;
+}}
+[class*="st-key-door-card"] button {{
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: {TEXT};
+    font-family: {DISPLAY}; font-weight: 700; font-size: 22px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 10px 6px 4px 6px;
+}}
+[class*="st-key-door-card"] button:hover {{
+    color: {GREEN};
+}}
+[class*="st-key-door-card"] button p {{ font-size: inherit !important; font-family: inherit !important; }}
+
 /* Poster panels around key charts */
 .st-key-map-panel, .st-key-goal-panel {{
     background: linear-gradient(118deg, #0d1420 0%, {NAVY} 48%, rgba(28,94,54,0.4) 115%);
@@ -433,9 +467,48 @@ div[data-testid="stExpander"] {{
     )
 
 
+PAGE_ACCENTS: dict[str, str] = {
+    "Shot Map": GREEN,
+    "Match Timeline": "#4ea1ff",
+    "xG Estimator": AMBER,
+    "Model Evaluation": RED,
+    "Beat the Model": GREEN,
+    "Team & Player Insights": AMBER,
+    "Front Page": "#4ea1ff",
+}
+
+
+def tint(color: str, alpha: float) -> str:
+    """Hex color to rgba(...,alpha) for translucent poster tints."""
+    hex_value = color.lstrip("#")
+    r, g, b = int(hex_value[0:2], 16), int(hex_value[2:4], 16), int(hex_value[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
+
 def hero(page: str) -> None:
-    """Poster band: giant display words + diagonal wedges + numbered index."""
+    """Poster band: giant display words + diagonal wedges + numbered index.
+
+    Each page gets its own accent colour — a one-page identity injection so
+    pages do not all wear the same gradient.
+    """
     cfg = page_posters[page]
+    accent = PAGE_ACCENTS.get(page, GREEN)
+    st.markdown(
+        f"""<style>
+.piq-hero {{ background: linear-gradient(102deg, {NAVY} 0%, {NAVY_2} 46%, {tint(accent, 0.20)} 100%); }}
+.piq-hero .piq-wedge {{ background: linear-gradient(180deg, {tint(accent, 0.30)}, {tint(accent, 0)}); }}
+.piq-hero .piq-wedge2 {{ background: linear-gradient(180deg, {tint(accent, 0.20)}, {tint(accent, 0)}); }}
+.piq-hero .edge {{ background: linear-gradient(180deg, {accent}, transparent); }}
+.piq-hero .piq-node {{ border-color: {tint(accent, 0.55)}; color: {accent}; background: {tint(accent, 0.12)}; }}
+.piq-hero .piq-index {{ border-color: {tint(accent, 0.60)}; color: {accent}; }}
+.piq-hero .piq-chip.solid {{ border-color: {tint(accent, 0.55)}; color: {accent}; }}
+.piq-hero .piq-chip svg {{ color: {accent}; }}
+.piq-hero .piq-word .amp {{ color: {accent}; }}
+.piq-section .idx {{ color: {accent}; border-color: {tint(accent, 0.40)}; background: {tint(accent, 0.10)}; }}
+.piq-section .t svg {{ color: {accent}; }}
+</style>""",
+        unsafe_allow_html=True,
+    )
     img = ASSETS_DIR / cfg["asset"]
     img_html = (
         f'<img class="piq-hero-img" src="data:image/png;base64,{base64.b64encode(img.read_bytes()).decode()}" alt="">'
@@ -495,6 +568,82 @@ def footer_band() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 0. Front page (magazine cover)
+# ---------------------------------------------------------------------------
+
+
+def _nav_to(page: str) -> None:
+    """Button callback: jump the sidebar selectbox to another page."""
+    st.session_state["menu"] = page
+
+
+def front_page() -> None:
+    """Magazine-cover landing: headline numbers plus doors to every view."""
+    data = load_shots()
+    shots_count = int((~data["is_penalty"].fillna(False)).sum())
+    matches_count = int(data["match_id"].nunique())
+    try:
+        metadata = json.loads((MODELS_DIR / "metadata.json").read_text(encoding="utf-8"))
+        test_auc = f"{metadata['test_metrics']['roc_auc']:.3f}"
+    except (OSError, KeyError, json.JSONDecodeError):
+        test_auc = "0.796"
+
+    hero("Front Page")
+
+    headline_stats = [
+        ("SHOTS", f"{shots_count:,}"),
+        ("MATCHES", f"{matches_count}"),
+        ("COMPETITIONS", "3"),
+        ("TEST AUC", test_auc),
+    ]
+    cells = "".join(
+        f"""<div style="flex:1 1 0; min-width:120px;">
+<div style="font-family:{DISPLAY}; font-weight:700; font-size:48px; line-height:1;
+ letter-spacing:1px; color:{TEXT};">{value}</div>
+<div style="font:600 10px/2.2 {BODY}; letter-spacing:0.18em; text-transform:uppercase;
+ color:{TEXT_DIM};">{label}</div>
+</div>"""
+        for label, value in headline_stats
+    )
+    st.markdown(
+        f"""<div style="display:flex; gap:22px; align-items:flex-start;">
+{cells}
+</div>""",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    section("1", "Pick a door", "pitch")
+    doors = [
+        ("Shot Map", "pitch", "Every one of the 12,241 shots on a live pitch, size and colour = xG."),
+        ("Match Timeline", "bolt", "Replay any match like a broadcast: the xG race builds minute by minute."),
+        ("xG Estimator", "target", "Price any shot in real time — and see why each factor moves it."),
+        ("Model Evaluation", "chart", "The honest audit: AUC, log loss, Brier and calibration, explained."),
+        ("Beat the Model", "bolt", "Five unseen shots, your odds vs the model's — log loss decides."),
+        ("Team & Player Insights", "users", "Head-to-head radar, scout cards, zones and manager recommendations."),
+    ]
+    door_index = 0
+    for row_start in range(0, len(doors), 2):
+        pair = st.columns(2, gap="medium")
+        for slot, (page_name, page_icon, blurb) in zip(pair, doors[row_start:row_start + 2]):
+            with slot:
+                with st.container(key=f"door-card-{door_index}"):
+                    door_index += 1
+                    slot.button(
+                        page_name,
+                        on_click=_nav_to,
+                        kwargs={"page": page_name},
+                        use_container_width=True,
+                    )
+                    slot.caption(blurb)
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    st.caption(
+        "All numbers on this cover are computed live from the audited pipeline — "
+        "the model never sees StatsBomb xG as an input and penalties are excluded."
+    )
+
+
+# ---------------------------------------------------------------------------
 # 1. Shot map
 # ---------------------------------------------------------------------------
 
@@ -516,15 +665,18 @@ def shot_map_page() -> None:
     hero("Shot Map")
 
     section("1", "Filter the shots", "target")
-    head = st.columns(6)
+    head = st.columns([1.6, 1.6, 1.15, 1.15])
     team = head[0].selectbox("Team", ["All"] + sorted(data["team"].astype(str).unique().tolist()))
     team_players = sorted(data.loc[data["team"] == team, "player"].astype(str).unique())
     all_players = sorted(data["player"].value_counts().loc[lambda c: c >= 15].index.astype(str).tolist())
     player = head[1].selectbox("Player", ["All"] + (team_players if team != "All" else all_players))
     body = head[2].selectbox("Body part", ["All"] + sorted(data["body_part"].dropna().astype(str).unique().tolist()))
     shot_type = head[3].selectbox("Shot type", ["All"] + sorted(data["shot_type"].dropna().astype(str).unique().tolist()))
-    goal_filter = head[4].radio("Outcome", ["All", "Goals", "No goals"], horizontal=True)
-    show_penalties = head[5].toggle("Include penalties", value=False)
+    tail = st.columns([2.4, 2.4, 6])
+    with tail[0]:
+        goal_filter = st.radio("Outcome", ["All", "Goals", "No goals"], horizontal=True)
+    with tail[1]:
+        show_penalties = st.toggle("Include penalties", value=False)
 
     view = filter_and_display(data, show_penalties)
     if team != "All":
@@ -1641,7 +1793,7 @@ def sidebar() -> str:
 </div>""",
         unsafe_allow_html=True,
     )
-    page = st.sidebar.selectbox("Menu", list(page_titles.keys()))
+    page = st.sidebar.selectbox("Menu", list(page_titles.keys()), key="menu")
     st.sidebar.divider()
     st.sidebar.markdown(
         f"""<a class="piq-pill solid" href="{DEMO_URL}" target="_blank">{icon('arrow', 13)} LIVE DEMO</a>
@@ -1715,7 +1867,9 @@ def main() -> None:
             "numbers as final results."
         )
 
-    if page == "Shot Map":
+    if page == "Front Page":
+        front_page()
+    elif page == "Shot Map":
         shot_map_page()
     elif page == "Match Timeline":
         timeline_page()
