@@ -533,7 +533,7 @@ div[data-testid="stExpander"] {{
 .piq-section {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .08s; }}
 div[data-testid="stMetric"] {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; }}
 div[data-testid="stDataFrame"], div[data-testid="stExpander"] {{ animation: piqFade .5s ease both; animation-delay: .12s; }}
-.st-key-map-panel, .st-key-goal-panel, .st-key-timeline-panel {{
+.st-key-map-panel, .st-key-goal-panel, .st-key-timeline-panel, .st-key-quiz-panel {{
     animation: piqRise .65s cubic-bezier(.22,1,.36,1) both; animation-delay: .14s;
 }}
 .stPlotlyChart {{ animation: piqFade .5s ease both; animation-delay: .12s; }}
@@ -576,6 +576,39 @@ div[data-testid="stMetric"]:hover {{ border-color: {tint(GREEN, 0.5)}; transitio
     transition: transform .35s cubic-bezier(.34,1.56,.64,1);
 }}
 .piq-band .ghost {{ animation: piqGhost 18s ease-in-out infinite alternate; }}
+
+/* Audit ticker: audited facts scroll like a poster footnote strip */
+.piq-ticker {{ overflow: hidden; border-top: 1.4px dashed {LINE}; border-bottom: 1.4px dashed {LINE};
+    padding: 9px 0; margin: 28px 0 0 0; }}
+.piq-ticker .track {{ display: inline-flex; gap: 34px; white-space: nowrap;
+    animation: piqMarquee 48s linear infinite; }}
+.piq-ticker:hover .track {{ animation-play-state: paused; }}
+.piq-ticker .fact {{ font: 600 11.5px/2 {BODY}; letter-spacing: .13em; text-transform: uppercase; color: {TEXT_DIM}; }}
+.piq-ticker .fact b {{ color: {TEXT}; font-family: {DISPLAY}; font-weight: 700; letter-spacing: .09em;
+    font-size: 13.5px; margin-right: 6px; }}
+@keyframes piqMarquee {{ from {{ transform: translateX(0); }} to {{ transform: translateX(-50%); }} }}
+
+/* Broadcast LIVE badge (timeline replay) */
+.piq-live-badge {{ display: inline-flex; align-items: center; gap: 9px; padding: 4px 14px;
+    border: 1.4px dashed rgba(222,66,64,0.55); border-radius: 999px; color: {TEXT};
+    font: 600 10.5px/2.2 {BODY}; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 4px 0; }}
+.piq-live-badge .dot {{ width: 8px; height: 8px; border-radius: 50%; background: {RED};
+    animation: piqPulse 1.2s ease-in-out infinite; }}
+@keyframes piqPulse {{ 0%, 100% {{ opacity: .35; transform: scale(.82); }} 50% {{ opacity: 1; transform: scale(1); }} }}
+
+/* Poster panel around the quiz round score */
+.st-key-quiz-panel {{ border: 1.4px solid {LINE}; border-radius: 16px;
+    background: linear-gradient(150deg, rgba(13,17,26,0.55) 0%, rgba(13,17,26,0.32) 100%);
+    padding: 16px 18px 12px 18px; }}
+
+/* Quiz verdict (splash-setone) */
+.piq-verdict {{ animation: piqRise .75s cubic-bezier(.22,1,.36,1) both; margin-top: 2px; }}
+.piq-verdict .word {{ font-family: {DISPLAY}; font-weight: 700; font-size: clamp(38px, 4.6vw, 60px);
+    line-height: 1; letter-spacing: 1.5px; text-transform: uppercase; color: {GREEN}; }}
+.piq-verdict .word.m {{ color: {RED}; }}
+.piq-verdict .rule {{ height: 3px; width: 110px; background: {GREEN}; border-radius: 2px; margin: 13px 0 9px 0;
+    animation: piqSweep .7s .1s cubic-bezier(.22,1,.36,1) both; }}
+.piq-verdict .sub {{ font: 500 13.5px/1.7 {BODY}; color: {TEXT_DIM}; max-width: 660px; }}
 </style>
 """,
         unsafe_allow_html=True,
@@ -770,6 +803,22 @@ def front_page() -> None:
                         use_container_width=True,
                     )
                     st.caption(blurb)
+    facts = [
+        ("Messi", "27 goals on 19.94 xG — +7.06 finishing premium, 190 shots"),
+        ("Özil", "142 assisted shots turned into 14.5 xG"),
+        ("Aston Villa", "54% of shots below 0.05 xG — scenario adds +5.2 xG"),
+        ("Stoke City", "59 long-range shots, 0 goals — 0.017 xG per shot"),
+        ("Counter-attacks", "0.146 xG per shot vs 0.097 open play, 558 shots"),
+        ("Audit", f"AUC {test_auc} · log loss 0.257 · Brier 0.0732 · ECE 0.0204"),
+    ]
+    fact_items = "".join(
+        f'<span class="fact"><b>{name}</b>{value}</span>' for name, value in facts
+    )
+    st.markdown(
+        f"""<div class="piq-ticker"><div class="track">{fact_items}{fact_items}</div></div>""",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     st.caption(
         "All numbers on this cover are computed live from the audited pipeline — the "
         "model never sees StatsBomb xG as an input and penalties are excluded."
@@ -989,6 +1038,13 @@ def timeline_page() -> None:
     def race_render(current: int, live: bool) -> None:
         """Draw scoreline tiles, the masked xG race and the event feed."""
         upto = md[md["minute"] <= current]
+
+        if live:
+            st.markdown(
+                '<div class="piq-live-badge"><span class="dot"></span>LIVE REPLAY — '
+                "the match builds minute by minute</div>",
+                unsafe_allow_html=True,
+            )
 
         tiles = st.columns([1, 1.35, 1.35, 1.1])
         tiles[0].metric("Minute", f"{current}'")
@@ -1619,17 +1675,35 @@ def quiz_page() -> None:
         brier_model = float(np.mean([(it["p_model"] - it["goal"]) ** 2 for it in items]))
 
         section("1", "Round score", "chart")
-        lead = st.columns(4)
-        lead[0].metric("Your log loss", f"{ll_user:.3f}")
-        lead[1].metric("Model log loss", f"{ll_model:.3f}")
-        lead[2].metric("Your Brier", f"{brier_user:.3f}")
-        lead[3].metric("Model Brier", f"{brier_model:.3f}")
-        if ll_user < ll_model:
-            st.success(f"You beat the model this round: {ll_user:.3f} vs {ll_model:.3f} log loss — smaller is better.")
-        elif ll_user > ll_model:
-            st.info(f"Model wins this round: {ll_model:.3f} vs your {ll_user:.3f} log loss. Log loss punishes confident misses hardest — that's the same metric the model was trained to minimize.")
-        else:
-            st.info("Dead heat — identical log loss over these five shots.")
+        with st.container(key="quiz-panel"):
+            if ll_user < ll_model:
+                verdict, vcls = "YOU BEAT THE MODEL", ""
+                verdict_sub = (
+                    f"Log loss {ll_user:.3f} vs {ll_model:.3f} — smaller is better, and yours is "
+                    "smaller over these five shots."
+                )
+            elif ll_user > ll_model:
+                verdict, vcls = "MODEL WINS THIS ROUND", "m"
+                verdict_sub = (
+                    f"Log loss {ll_model:.3f} vs your {ll_user:.3f}. Confident misses cost you "
+                    "the round — punishing them is exactly what the model minimises."
+                )
+            else:
+                verdict, vcls = "DEAD HEAT", "m"
+                verdict_sub = "Identical log loss over these five shots — deal another round."
+            st.markdown(
+                f"""<div class="piq-verdict">
+<div class="word {vcls}">{verdict}</div>
+<div class="rule"></div>
+<div class="sub">{verdict_sub}</div>
+</div>""",
+                unsafe_allow_html=True,
+            )
+            lead = st.columns(4)
+            lead[0].metric("Your log loss", f"{ll_user:.3f}")
+            lead[1].metric("Model log loss", f"{ll_model:.3f}")
+            lead[2].metric("Your Brier", f"{brier_user:.3f}")
+            lead[3].metric("Model Brier", f"{brier_model:.3f}")
 
         section("2", "The reveal", "target")
         reveal = round_df.copy()
