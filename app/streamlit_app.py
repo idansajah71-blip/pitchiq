@@ -1949,7 +1949,7 @@ def insights_page() -> None:
         with wcol_left:
             st.markdown("##### Likely to cool down — finished far above xG")
             cooled = qualified.sort_values("goals_minus_xg", ascending=False).head(8)[
-                ["team", "shots", "goals", "xg_pitchiq", "goals_minus_xg"]
+                ["team", "shots", "goals", "xg_shotworth", "goals_minus_xg"]
             ].copy()
             cooled.insert(0, "Player", cooled.index.astype(str))
             cooled.columns = ["Player", "Team", "Shots", "Goals", "Total xG", "Goals − xG"]
@@ -1969,7 +1969,7 @@ def insights_page() -> None:
                 (qualified["xg_per_shot"] >= quality_bar)
                 & (qualified["goals_minus_xg"] < -0.5)
             ].sort_values("goals_minus_xg").head(8)[
-                ["team", "shots", "goals", "xg_pitchiq", "xg_per_shot", "goals_minus_xg"]
+                ["team", "shots", "goals", "xg_shotworth", "xg_per_shot", "goals_minus_xg"]
             ].copy()
             if undervalued.empty:
                 st.caption("No undervalued finishers at this sample threshold — lower the slider.")

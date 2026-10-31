@@ -1,4 +1,4 @@
-x_band,y_band,shots,goals,conversion,mean_pitchiq_xg
+x_band,y_band,shots,goals,conversion,mean_shotworth_xg
 x<60,y0-20,1,0,0.0,4.6064033512824045e-05
 x<60,20-40,7,0,0.0,0.000327089341068346
 x<60,40-60,4,0,0.0,7.299306892792464e-05

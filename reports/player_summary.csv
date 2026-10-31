@@ -1,4 +1,4 @@
-player,team,competition,shots,goals,xg_pitchiq,xg_statsbomb,xg_per_shot,goals_minus_xg,sample_note,assists,assisted_goals,assisted_xg
+player,team,competition,shots,goals,xg_shotworth,xg_statsbomb,xg_per_shot,goals_minus_xg,sample_note,assists,assisted_goals,assisted_xg
 Lionel Andrés Messi Cuccittini,Barcelona,La Liga,190.0,27.0,19.935049003984133,18.952503677,0.10492131054728492,7.064950996015867,,77.0,10.0,9.997641078720301
 Harry Kane,Tottenham Hotspur,Premier League,153.0,20.0,18.066309167031573,17.7179907508,0.11808045207210179,1.933690832968427,,40.0,1.0,3.4631206133765957
 Romelu Lukaku Menama,Everton,Premier League,114.0,17.0,17.56350017366882,16.5901581707,0.15406579099709491,-0.563500173668821,,49.0,6.0,5.688509781498641

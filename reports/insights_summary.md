@@ -1,6 +1,6 @@
 # Insights summary (Phase 3)
 
-Model output: PitchIQ xG = saved pipeline + optional calibration.
+Model output: ShotWorth xG = saved pipeline + optional calibration.
 Penalties excluded everywhere (reported separately). Player and team tables use **descriptive averages**, not guarantees - goals - xG is noisy below ~30 shots.
 
 ## Top 5 factors (SHAP, grouped to original features)
@@ -28,7 +28,7 @@ Permutation importance agrees on order: distance, log_distance, angle_deg, body_
 | Alexis Alejandro Sánchez Sánchez | Arsenal | Premier League | 57 | 4 | 8.28 |
 | Erik Lamela | Tottenham Hotspur | Premier League | 72 | 8 | 8.20 |
 
-### Top finishers (min 15 shots, ranked by goals - PitchIQ xG)
+### Top finishers (min 15 shots, ranked by goals - ShotWorth xG)
 
 | player | team | competition | shots | xG | xG/shot | goals | goals-xG |
 |---|---|---|---|---|---|---|---|
@@ -43,7 +43,7 @@ Permutation importance agrees on order: distance, log_distance, angle_deg, body_
 | Nathan Redmond | Norwich City | Premier League | 53 | 2.96 | 0.056 | 6 | +3.04 |
 | Graziano Pellè | Southampton | Premier League | 82 | 7.97 | 0.097 | 11 | +3.03 |
 
-### Best shot quality (min 15 shots, ranked by PitchIQ xG/shot)
+### Best shot quality (min 15 shots, ranked by ShotWorth xG/shot)
 
 | player | team | competition | shots | xG | xG/shot | goals | goals-xG |
 |---|---|---|---|---|---|---|---|
@@ -70,12 +70,12 @@ Goals - xG is noisy on small samples; treat single-season finishes (especially u
 
 ## Recommendations for coaches (short version)
 
-- Aston Villa take 54% of their shots below 0.05 xG (PitchIQ xG/shot 0.073 vs dataset mean 0.098). Scenario, not a causal forecast: replacing one-third of these 212 shots (mean current xG 0.027) with chances rated 0.10 xG would add about +5.2 expected goals if other factors stayed constant. Coaching hypothesis: look for better progression into the box rather than treating low xG alone as proof a shot was a mistake.
+- Aston Villa take 54% of their shots below 0.05 xG (ShotWorth xG/shot 0.073 vs dataset mean 0.098). Scenario, not a causal forecast: replacing one-third of these 212 shots (mean current xG 0.027) with chances rated 0.10 xG would add about +5.2 expected goals if other factors stayed constant. Coaching hypothesis: look for better progression into the box rather than treating low xG alone as proof a shot was a mistake.
 - Stoke City attempt shots from 30+ StatsBomb pitch-coordinate units on 14% of their attempts (59 shots: xG/shot 0.017, conversion 0.0%). Their xG difference for vs against is -13.97. Coaching hypothesis: review whether progression or a pass creates a better option in these situations; low xG alone does not prove a shot was a mistake.
 - 'From Counter' shots average 0.146 xG (conversion 14.7%) vs 0.097 for regular play, across 558 observed shots. This association is descriptive—not proof that the pattern or tempo causes better chances; shot location and game state may explain part of the gap. Review the transition clips before prescribing a tactical change.
 - The attacking band 110+ / inside channel (mirrored y-bands grouped together) has the highest mean xG among qualified paired zones: 0.178 (conversion 17.7%; 3317 shots, 27.5% of all shots). Treat this as a location pattern to review on video, not proof that forcing shots into that band will improve outcomes.
-- Lionel Andrés Messi Cuccittini (Barcelona, La Liga) recorded 27 goals on 19.94 PitchIQ xG (190 shots, +7.06 goals minus xG, 0.105 xG/shot). This is an observed residual, not proof it will persist; validate on a larger or later sample before treating it as repeatable finishing skill.
+- Lionel Andrés Messi Cuccittini (Barcelona, La Liga) recorded 27 goals on 19.94 ShotWorth xG (190 shots, +7.06 goals minus xG, 0.105 xG/shot). This is an observed residual, not proof it will persist; validate on a larger or later sample before treating it as repeatable finishing skill.
 
 Files: `shap_top_factors.csv`, `permutation_importance.csv`, `player_summary.csv`, `team_summary.csv`, `zone_summary.csv`, `context_quality.csv`, `coach_recommendations.md`.
 
-Data: StatsBomb Open Data. PitchIQ is an independent hackathon project and is not affiliated with StatsBomb.
+Data: StatsBomb Open Data. ShotWorth is an independent hackathon project and is not affiliated with StatsBomb.

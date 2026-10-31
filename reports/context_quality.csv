@@ -1,4 +1,4 @@
-dimension,play_pattern,shots,goals,conversion,mean_pitchiq_xg,under_pressure,first_time,body_part
+dimension,play_pattern,shots,goals,conversion,mean_shotworth_xg,under_pressure,first_time,body_part
 play_pattern,From Corner,2011,176,0.08751864743908504,0.08914905118875334,,,
 play_pattern,From Counter,558,82,0.14695340501792115,0.1464718067546715,,,
 play_pattern,From Free Kick,2282,203,0.08895705521472393,0.09219190268024441,,,
