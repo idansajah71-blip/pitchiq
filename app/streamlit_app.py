@@ -1739,7 +1739,76 @@ def insights_page() -> None:
         )
         st.caption("Mirrored lateral bands are paired together since the audit; the rows above are the best combined pairs.")
 
-    section("5", "Scout card", "target")
+    section("5", "Player cards", "users")
+    card_choices = sorted(qualified.index.astype(str).tolist())
+    if not card_choices:
+        st.caption("Lower the minimum-shots slider to draw cards.")
+    else:
+        default_player = "Lionel Messi" if "Lionel Messi" in card_choices else card_choices[0]
+        chosen_player = st.selectbox("Draw a card", card_choices, index=card_choices.index(default_player))
+        prow = qualified.loc[chosen_player]
+        finishing_delta = float(prow["goals_minus_xg"])
+        if finishing_delta >= 4.0:
+            tier, tier_color = "CLINICAL", GREEN
+        elif finishing_delta >= 0.5:
+            tier, tier_color = "HOT", "#65a30d"
+        elif finishing_delta >= -0.5:
+            tier, tier_color = "STEADY", AMBER
+        else:
+            tier, tier_color = "COOL", RED
+        assisted = prow.get("assisted_xg")
+        bar_scale = max(int(prow["goals"]), float(prow["xg_pitchiq"]), 1.0)
+        goals_widths = [
+            100 * int(prow["goals"]) / bar_scale,
+            100 * float(prow["xg_pitchiq"]) / bar_scale,
+        ]
+        stats_grid = [
+            ("Shots", f"{int(prow['shots'])}"),
+            ("Goals", f"{int(prow['goals'])}"),
+            ("Total xG", f"{float(prow['xg_pitchiq']):.1f}"),
+            ("xG / shot", f"{float(prow['xg_per_shot']):.3f}"),
+            ("Goals − xG", f"{finishing_delta:+.2f}"),
+            ("Assisted xG", f"{float(assisted):.2f}" if pd.notna(assisted) else "—"),
+        ]
+        grid_cells = "".join(
+            f"""<div style="border:1px dashed {LINE}; border-radius:10px; padding:8px 10px; background:rgba(255,255,255,0.02);">
+<div style="font-family:{DISPLAY}; font-weight:700; font-size:26px; line-height:1.05; color:{TEXT};">{value}</div>
+<div style="font:600 9.5px/2 {BODY}; letter-spacing:0.16em; text-transform:uppercase; color:{TEXT_DIM};">{label}</div>
+</div>"""
+            for label, value in stats_grid
+        )
+        st.markdown(
+            f"""<div class="piq-band" style="background:linear-gradient(102deg,{NAVY} 0%,{NAVY_2} 52%, {tint(AMBER,0.16)} 115%);">
+<div style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+  <div style="flex:1 1 260px;">
+    <div class="lead">PLAYER CARD</div>
+    <div style="font-family:{DISPLAY}; font-weight:700; font-size:44px; letter-spacing:1px; color:{TEXT}; line-height:1; margin:6px 0 4px 0;">{chosen_player}</div>
+    <div class="piq-crumbs">
+      <span class="piq-chip">{str(prow['team'])}</span>
+      <span class="piq-chip">{str(prow['competition'])}</span>
+      <span class="piq-chip" style="border-color:{tint(tier_color,0.55)}; color:{tier_color};">{tier}</span>
+    </div>
+  </div>
+  <div style="flex:2 1 420px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+{grid_cells}
+  </div>
+</div>
+<div style="margin-top:10px;">
+  <div style="font:600 9.5px/2 {BODY}; letter-spacing:0.16em; text-transform:uppercase; color:{TEXT_DIM};">Goals vs xG</div>
+  {"".join(f"""<div style="display:flex; align-items:center; gap:8px; margin:2px 0;">
+<span style="font:600 9.5px/1.6 {BODY}; letter-spacing:0.12em; text-transform:uppercase; color:{TEXT_DIM}; min-width:38px;">{label}</span>
+<span style="flex:1; height:10px; border-radius:8px; background:{LINE}; display:inline-block; overflow:hidden;">
+<span style="display:block; height:10px; width:{width:.0f}%; border-radius:8px; background:{bar};"></span>
+</span>
+<span style="font-family:{DISPLAY}; font-weight:700; color:{TEXT}; min-width:40px;">{num:.2f}</span>
+</div>""" for label, num, width, bar in zip(("Goals", "xG"), (int(prow['goals']), float(prow['xg_pitchiq'])), (goals_widths[0], goals_widths[1]), (GREEN, GREEN)))}
+</div>
+</div>""",
+            unsafe_allow_html=True,
+        )
+        st.caption("Tier = finishing over/underperformance vs xG among sampled players (CLINICAL ≥ +4). Assisted xG counts key-pass-linked shots only.")
+
+    section("6", "Scout card", "target")
     league_xg_ps = float(team_stats["xg_per_shot_for"].mean())
     league_lowq = float(team_stats["low_quality_share"].mean())
     scout_team = st.selectbox("Scout which team?", team_list, index=team_list.index(volume_pair[0]) if volume_pair[0] in team_list else 0)
