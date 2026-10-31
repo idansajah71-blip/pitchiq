@@ -503,6 +503,42 @@ div[data-testid="stExpander"] {{
     color: {TEXT};
 }}
 .piq-band .sub {{ font: 400 11.5px/1.6 {BODY}; color: {TEXT_DIM}; max-width: 640px; }}
+
+/* Motion system: entrances animate on page mount only (React keeps unchanged
+   DOM nodes across reruns, so slider drags do not replay them). */
+@keyframes piqRise {{ from {{ opacity: 0; transform: translateY(18px); }} to {{ opacity: 1; transform: none; }} }}
+@keyframes piqFade {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+@keyframes piqSweep {{ from {{ width: 0; }} to {{ width: 130px; }} }}
+@keyframes piqGlow {{ 0%, 100% {{ box-shadow: 0 0 0 0 rgba(0,0,0,0); }}
+                     50% {{ box-shadow: 0 0 18px 2px rgba(46,194,126,0.28); }} }}
+@keyframes piqGhost {{ from {{ transform: translate(8px, -50%); }} to {{ transform: translate(-32px, -50%); }} }}
+
+.piq-hero {{ animation: piqRise .55s cubic-bezier(.2,.8,.2,1) both; }}
+.piq-section {{ animation: piqRise .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: .06s; }}
+div[data-testid="stMetric"] {{ animation: piqRise .5s cubic-bezier(.2,.8,.2,1) both; }}
+div[data-testid="stDataFrame"], div[data-testid="stExpander"] {{ animation: piqFade .45s ease both; animation-delay: .08s; }}
+.st-key-map-panel, .st-key-goal-panel, .st-key-timeline-panel {{ animation: piqFade .5s ease both; animation-delay: .1s; }}
+.stPlotlyChart {{ animation: piqFade .45s ease both; }}
+
+/* Front page choreography */
+.piq-page-brand {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .04s; }}
+.piq-giant {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .16s; }}
+.piq-rule-sweep {{ animation: piqSweep .8s .42s cubic-bezier(.2,.8,.2,1) both; }}
+.piq-page-sub {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .3s; }}
+.piq-page-stats {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .42s; }}
+.piq-door-toprow {{ animation: piqRise .5s cubic-bezier(.2,.8,.2,1) both; }}
+[class*="st-key-door-card"] {{ animation: piqRise .55s cubic-bezier(.2,.8,.2,1) backwards; }}
+.st-key-door-card-0 {{ animation-delay: .1s; }}
+.st-key-door-card-1 {{ animation-delay: .17s; }}
+.st-key-door-card-2 {{ animation-delay: .24s; }}
+.st-key-door-card-3 {{ animation-delay: .31s; }}
+.st-key-door-card-4 {{ animation-delay: .38s; }}
+.st-key-door-card-5 {{ animation-delay: .45s; }}
+
+/* Micro-interactions */
+.piq-pill.solid {{ animation: piqGlow 2.8s ease-in-out infinite; }}
+div[data-testid="stMetric"]:hover {{ border-color: {tint(GREEN, 0.5)}; transition: border-color .2s ease; }}
+.piq-band .ghost {{ animation: piqGhost 18s ease-in-out infinite alternate; }}
 </style>
 """,
         unsafe_allow_html=True,
