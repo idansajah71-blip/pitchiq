@@ -265,7 +265,9 @@ def global_css() -> None:
 div[data-testid="stMainBlockContainer"] {{
     max-width: 1220px;
     margin: 0 auto;
-    padding-top: 1.4rem;
+    padding-top: 2.4rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
 }}
 
 /* Strip Streamlit framework chrome (menu, toolbar, footer, decorations) */
@@ -278,8 +280,8 @@ header[data-testid="stHeader"] {{ background: transparent; }}
     background: linear-gradient(102deg, {NAVY} 0%, {NAVY_2} 46%, rgba(23,94,54,0.62) 100%);
     border: 1px solid {LINE};
     border-radius: 16px;
-    padding: 20px 24px 16px 24px;
-    margin-bottom: 6px;
+    padding: 22px 26px 18px 26px;
+    margin-bottom: 14px;
 }}
 .piq-wedge {{
     position: absolute; top: -55%; right: 3%;
@@ -612,7 +614,7 @@ def front_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     section("1", "Pick a door", "pitch")
     doors = [
         ("Shot Map", "pitch", "Every one of the 12,241 shots on a live pitch, size and colour = xG."),
