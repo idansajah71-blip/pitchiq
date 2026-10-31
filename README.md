@@ -11,7 +11,7 @@ leaderboard.
 
 ## Live demo
 
-**[▶ pitchiq-xg.streamlit.app](https://pitchiq-xg.streamlit.app)** — deployed
+**[▶ shotworth-pitchiq-xg.streamlit.app](https://shotworth-pitchiq-xg.streamlit.app)** — deployed
 on Streamlit Community Cloud. First load takes ~1 minute (cold start) while
 dependencies install and the model boots. Or run locally:
 

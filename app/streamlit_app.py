@@ -35,7 +35,7 @@ MIN_ASSISTS = 10
 ASSETS_DIR = ROOT / "app" / "assets"
 
 REPO_URL = "https://github.com/idansajah71-blip/shotworth"
-DEMO_URL = "https://pitchiq-xg.streamlit.app"
+DEMO_URL = "https://shotworth-pitchiq-xg.streamlit.app"
 
 CREDIT = (
     "Data: StatsBomb Open Data (via statsbombpy). ShotWorth is an independent "

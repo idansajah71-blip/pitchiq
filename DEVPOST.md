@@ -2,7 +2,7 @@
 
 **Title:** ShotWorth — Expected Goals Intelligence
 
-**Live demo:** <https://pitchiq-xg.streamlit.app> · **Source:** <https://github.com/idansajah71-blip/shotworth>
+**Live demo:** <https://shotworth-pitchiq-xg.streamlit.app> · **Source:** <https://github.com/idansajah71-blip/shotworth>
 
 ## Problem
 Every shot counts as one in a basic box score, but chances differ dramatically. Coaches and analysts need to understand where shots come from, what context affects chance quality, and which patterns are worth investigating—not just receive another chart of raw counts.
