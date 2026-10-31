@@ -942,6 +942,74 @@ def estimator_page() -> None:
             "different task."
         )
 
+    section("3", "Why this xG", "chart")
+    cal_base = load_shots().loc[~load_shots()["is_penalty"].fillna(False)]
+    base_distance = float(cal_base["distance"].median())
+    base_angle = float(cal_base["angle_deg"].median())
+
+    def neutral_prob(column: str, value: Any) -> float:
+        """Probability with one factor swapped to a dataset-typical value."""
+        row_copy = row.copy()
+        row_copy[column] = value
+        if column in ("distance", "angle_deg"):
+            row_copy["log_distance"] = np.log1p(float(row_copy["distance"].iloc[0]))
+        if column == "shot_type" and value == "Open Play":
+            row_copy["play_pattern"] = "Regular Play"
+        elif column == "shot_type":
+            row_copy["play_pattern"] = "From Free Kick"
+        p = float(artifact["pipeline"].predict_proba(row_copy[FEATURE_COLUMNS])[:, 1][0])
+        cal = artifact.get("calibrator")
+        return float(cal.predict(np.array([p]))[0]) if cal is not None else p
+
+    contributions: list[tuple[str, float]] = [
+        ("Distance (→ median)", neutral_prob("distance", base_distance)),
+        ("Body part (→ right foot)", neutral_prob("body_part", "Right Foot")),
+        ("Angle (→ median)", neutral_prob("angle_deg", base_angle)),
+        ("Shot type (→ open play)", neutral_prob("shot_type", "Open Play")),
+        ("Under pressure (→ no)", neutral_prob("under_pressure", 0)),
+        ("First-time finish (→ no)", neutral_prob("first_time", 0)),
+    ]
+
+    import plotly.graph_objects as go
+
+    deltas = [
+        (name, probability - p_neutral)
+        for name, p_neutral in contributions
+    ]
+    deltas.sort(key=lambda item: abs(item[1]))
+    expl_fig = go.Figure()
+    expl_fig.add_trace(go.Bar(
+        x=[d for _, d in deltas],
+        y=[name for name, _ in deltas],
+        orientation="h",
+        marker=dict(
+            color=[GREEN if d >= 0 else RED for _, d in deltas],
+            line=dict(width=0),
+        ),
+        hovertemplate="%{y}<br>Δ xG %{x:+.3f}<extra></extra>",
+    ))
+    expl_fig.update_layout(
+        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=BODY, color=TEXT_DIM), hoverlabel=HOVERLABEL,
+        xaxis=dict(title="xG contribution (current situation → this factor)", zeroline=True,
+                   zerolinecolor="#5b6b7e", gridcolor="#1a2434"),
+        yaxis=dict(title=""),
+        height=300, margin=dict(l=10, r=16, t=10, b=40),
+    )
+    contrib_col, note_col = st.columns([1.5, 1], gap="large")
+    with contrib_col:
+        st.plotly_chart(expl_fig, width="stretch")
+    with note_col:
+        st.markdown(
+            f"**Current probability: {probability:.1%}** — each bar asks *\"what if one "
+            "factor were dataset-typical?\"* The gap to that neutral world is the "
+            "factor's influence on this specific shot.\n\n"
+            f"- Shot is placed {distance:.0f} m out vs a typical {base_distance:.0f} m.\n"
+            f"- Open angle {angle:.0f}° vs a typical {base_angle:.0f}°.\n\n"
+            "Bars do **not** sum to the total — factors interact, so this is an "
+            "approximate one-at-a-time diagnosis, not an exact Shapley decomposition."
+        )
+
 
 # ---------------------------------------------------------------------------
 # 3. Model evaluation
