@@ -328,10 +328,10 @@ div[data-testid="stMain"] {{
 .piq-word {{
     display: block;
     font-family: {DISPLAY}; font-weight: 700;
-    font-size: clamp(36px, 4.4vw, 58px);
-    line-height: 0.95; letter-spacing: 1.5px;
+    font-size: clamp(44px, 5.4vw, 72px);
+    line-height: 0.94; letter-spacing: 1.5px;
     text-transform: uppercase; color: {TEXT};
-    margin: 6px 0 8px 0; white-space: nowrap;
+    margin: 8px 0 10px 0; white-space: nowrap;
 }}
 .piq-word .ghost {{
     color: transparent;
@@ -420,12 +420,12 @@ div[data-testid="stMetricDelta"] svg {{ color: {GREEN} !important; }}
     background: linear-gradient(150deg, rgba(13,17,26,0.62) 0%, rgba(13,17,26,0.42) 100%);
     padding: 14px 18px 12px 18px;
     margin-bottom: 4px;
-    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    transition: transform .32s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, box-shadow .32s ease;
 }}
 [class*="st-key-door-card"]:hover {{
     border-color: {tint(GREEN, 0.55)};
-    transform: translateY(-3px);
-    box-shadow: 0 16px 34px rgba(0,0,0,0.45);
+    transform: translateY(-4px);
+    box-shadow: 0 18px 38px rgba(0,0,0,0.5);
 }}
 [class*="st-key-door-card"] button {{
     width: 100%;
@@ -506,38 +506,75 @@ div[data-testid="stExpander"] {{
 
 /* Motion system: entrances animate on page mount only (React keeps unchanged
    DOM nodes across reruns, so slider drags do not replay them). */
-@keyframes piqRise {{ from {{ opacity: 0; transform: translateY(18px); }} to {{ opacity: 1; transform: none; }} }}
+@keyframes piqRise {{ from {{ opacity: 0; transform: translateY(16px) scale(.985); }} to {{ opacity: 1; transform: none; }} }}
 @keyframes piqFade {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
 @keyframes piqSweep {{ from {{ width: 0; }} to {{ width: 130px; }} }}
 @keyframes piqGlow {{ 0%, 100% {{ box-shadow: 0 0 0 0 rgba(0,0,0,0); }}
                      50% {{ box-shadow: 0 0 18px 2px rgba(46,194,126,0.28); }} }}
 @keyframes piqGhost {{ from {{ transform: translate(8px, -50%); }} to {{ transform: translate(-32px, -50%); }} }}
+@keyframes piqFloatA {{ 0%, 100% {{ transform: rotate(16deg) translateY(0); }}
+                       50% {{ transform: rotate(14deg) translateY(-12px); }} }}
+@keyframes piqFloatB {{ 0%, 100% {{ transform: rotate(-13deg) translateY(0); }}
+                       50% {{ transform: rotate(-11deg) translateY(10px); }} }}
+@keyframes piqSpin {{ to {{ transform: rotate(360deg); }} }}
 
-.piq-hero {{ animation: piqRise .55s cubic-bezier(.2,.8,.2,1) both; }}
-.piq-section {{ animation: piqRise .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: .06s; }}
-div[data-testid="stMetric"] {{ animation: piqRise .5s cubic-bezier(.2,.8,.2,1) both; }}
-div[data-testid="stDataFrame"], div[data-testid="stExpander"] {{ animation: piqFade .45s ease both; animation-delay: .08s; }}
-.st-key-map-panel, .st-key-goal-panel, .st-key-timeline-panel {{ animation: piqFade .5s ease both; animation-delay: .1s; }}
-.stPlotlyChart {{ animation: piqFade .45s ease both; }}
+.piq-hero {{ animation: piqRise .65s cubic-bezier(.22,1,.36,1) both; }}
+.piq-hero .piq-wedge {{ animation: piqFloatA 10s ease-in-out infinite; }}
+.piq-hero .piq-wedge2 {{ animation: piqFloatB 12s ease-in-out infinite; }}
+.piq-hero .piq-orb {{
+    position: absolute; top: 26px; right: 108px; width: 92px; height: 92px;
+    border: 1.4px dashed rgba(230,237,243,0.16); border-radius: 50%;
+    animation: piqSpin 44s linear infinite; pointer-events: none;
+}}
+.piq-hero .piq-orb::after {{
+    content: ""; position: absolute; top: -4px; right: 50%;
+    width: 5px; height: 5px; border-radius: 50%; background: {GREEN};
+}}
+.piq-section {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .08s; }}
+div[data-testid="stMetric"] {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; }}
+div[data-testid="stDataFrame"], div[data-testid="stExpander"] {{ animation: piqFade .5s ease both; animation-delay: .12s; }}
+.st-key-map-panel, .st-key-goal-panel, .st-key-timeline-panel {{
+    animation: piqRise .65s cubic-bezier(.22,1,.36,1) both; animation-delay: .14s;
+}}
+.stPlotlyChart {{ animation: piqFade .5s ease both; animation-delay: .12s; }}
 
 /* Front page choreography */
-.piq-page-brand {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .04s; }}
-.piq-giant {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .16s; }}
-.piq-rule-sweep {{ animation: piqSweep .8s .42s cubic-bezier(.2,.8,.2,1) both; }}
-.piq-page-sub {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .3s; }}
-.piq-page-stats {{ animation: piqRise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .42s; }}
-.piq-door-toprow {{ animation: piqRise .5s cubic-bezier(.2,.8,.2,1) both; }}
-[class*="st-key-door-card"] {{ animation: piqRise .55s cubic-bezier(.2,.8,.2,1) backwards; }}
-.st-key-door-card-0 {{ animation-delay: .1s; }}
-.st-key-door-card-1 {{ animation-delay: .17s; }}
-.st-key-door-card-2 {{ animation-delay: .24s; }}
-.st-key-door-card-3 {{ animation-delay: .31s; }}
-.st-key-door-card-4 {{ animation-delay: .38s; }}
-.st-key-door-card-5 {{ animation-delay: .45s; }}
+.piq-page-brand {{ animation: piqRise .8s cubic-bezier(.22,1,.36,1) both; animation-delay: .04s; }}
+.piq-giant {{ animation: piqRise .8s cubic-bezier(.22,1,.36,1) both; animation-delay: .18s; }}
+.piq-rule-sweep {{ animation: piqSweep .9s .5s cubic-bezier(.22,1,.36,1) both; }}
+.piq-page-sub {{ animation: piqRise .8s cubic-bezier(.22,1,.36,1) both; animation-delay: .34s; }}
+.piq-page-stats {{ animation: piqRise .8s cubic-bezier(.22,1,.36,1) both; animation-delay: .46s; }}
+.piq-door-toprow {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) both; }}
+[class*="st-key-door-card"] {{ animation: piqRise .6s cubic-bezier(.22,1,.36,1) backwards; }}
+.st-key-door-card-0 {{ animation-delay: .12s; }}
+.st-key-door-card-1 {{ animation-delay: .2s; }}
+.st-key-door-card-2 {{ animation-delay: .28s; }}
+.st-key-door-card-3 {{ animation-delay: .36s; }}
+.st-key-door-card-4 {{ animation-delay: .44s; }}
+.st-key-door-card-5 {{ animation-delay: .52s; }}
+
+/* Magazine corner ticks + barcode (front page atmosphere) */
+.piq-page-head {{ position: relative; }}
+.piq-tick {{ position: absolute; width: 15px; height: 15px; opacity: .55;
+    border-color: rgba(230,237,243,0.3); pointer-events: none; }}
+.piq-tick.p1 {{ top: -6px; left: -10px; border-top: 1.6px solid; border-left: 1.6px solid; }}
+.piq-tick.p2 {{ top: -6px; right: -10px; border-top: 1.6px solid; border-right: 1.6px solid; }}
+.piq-tick.p3 {{ bottom: -6px; left: -10px; border-bottom: 1.6px solid; border-left: 1.6px solid; }}
+.piq-tick.p4 {{ bottom: -6px; right: -10px; border-bottom: 1.6px solid; border-right: 1.6px solid; }}
+.piq-barcode {{ height: 24px; width: 210px; opacity: .5; margin-top: 18px;
+    background: repeating-linear-gradient(90deg,
+        rgba(230,237,243,0.55) 0 2px, transparent 2px 5px,
+        rgba(230,237,243,0.55) 5px 6px, transparent 6px 11px); }}
+.piq-vol {{ font: 600 9.5px/2.4 {BODY}; letter-spacing: .2em; text-transform: uppercase;
+    color: {TEXT_DIM}; margin-top: 2px; }}
 
 /* Micro-interactions */
 .piq-pill.solid {{ animation: piqGlow 2.8s ease-in-out infinite; }}
 div[data-testid="stMetric"]:hover {{ border-color: {tint(GREEN, 0.5)}; transition: border-color .2s ease; }}
+[class*="st-key-door-card"]:hover .piq-door-arrow svg {{
+    transform: translateX(6px);
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+}}
 .piq-band .ghost {{ animation: piqGhost 18s ease-in-out infinite alternate; }}
 </style>
 """,
@@ -604,7 +641,8 @@ def hero(page: str) -> None:
     st.markdown(
         f"""
 <div class="piq-hero">
-  <span class="piq-wedge"></span><span class="piq-wedge2"></span><span class="edge"></span>
+  <span class="piq-wedge"></span><span class="piq-wedge2"></span>
+  <span class="piq-orb"></span><span class="edge"></span>
   {img_html}
   <span class="piq-node" style="top:18px; right:34px;">{icon('target', 15)}</span>
   <span class="piq-node" style="bottom:16px; right:64px;">{icon('bolt', 15)}</span>
@@ -684,6 +722,8 @@ def front_page() -> None:
     )
     st.markdown(
         f"""<div class="piq-page-head">
+  <span class="piq-tick p1"></span><span class="piq-tick p2"></span>
+  <span class="piq-tick p3"></span><span class="piq-tick p4"></span>
   <div class="piq-page-brand">{logo_dot}<span>SHOTWORTH · xG INTELLIGENCE</span></div>
   <div class="piq-giant">SHOT <span class="ghost">WORTH</span></div>
   <div class="piq-rule-sweep"></div>
@@ -691,6 +731,8 @@ def front_page() -> None:
   {matches_count} matches of StatsBomb Open Data, priced by a transparent model —
   an honest audit for every number that follows.</p>
   <div class="piq-page-stats">{cells}</div>
+  <div class="piq-barcode"></div>
+  <div class="piq-vol">VOL. {shots_count:,} — POST-AUDIT EDITION · STATSBOMB OPEN DATA REPACKED</div>
 </div>""",
         unsafe_allow_html=True,
     )
@@ -2075,7 +2117,7 @@ def render_splash() -> None:
         radial-gradient(800px 420px at -8% 112%, {tint(GREEN, 0.20)}, transparent 70%),
         linear-gradient(150deg, {NAVY} 0%, {INK} 80%);
     display: flex; align-items: center; justify-content: center;
-    animation: splashGone 3s cubic-bezier(.4,.2,.2,1) 1.6s forwards;
+    animation: splashGone 2.1s cubic-bezier(.4,0,.2,1) 1s forwards;
 }}
 .splash .wedge {{
     position: absolute; top: -40%; right: -4%; width: 320px; height: 190%;
@@ -2190,12 +2232,6 @@ def main() -> None:
     )
     global_css()
 
-    # Poster splash on the very first paint of a session: it fades itself out
-    # after ~3s (CSS forwards) and never renders again in the session.
-    if not st.session_state.get("splashed", False):
-        render_splash()
-        st.session_state["splashed"] = True
-
     page = sidebar()
 
     # Artifact integrity: warn if model/reports do not match the audited
@@ -2224,6 +2260,12 @@ def main() -> None:
         insights_page()
 
     footer_band()
+
+    # Splash renders LAST so every home element below it is fully painted
+    # before the overlay fades — no blank gap, no post-splash reflow.
+    if not st.session_state.get("splashed", False):
+        render_splash()
+        st.session_state["splashed"] = True
 
 
 if __name__ == "__main__":
