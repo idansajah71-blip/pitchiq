@@ -1,8 +1,8 @@
 """PitchIQ — Expected Goals Intelligence (Streamlit UI).
 
 Sportswear-poster design language: giant display typography, diagonal
-navy-to-green bands, dotted stat cards, numbered sections and real inline-SVG
-icons (no emoji). Pages: shot map, xG estimator, model evaluation, insights.
+navy/green bands, dashed stat tiles, numbered sections and real inline-SVG
+icons (no emoji). Pages: shot map, xG estimator, model audit, team insight.
 All numbers come from the saved pipeline (train.py + reports); StatsBomb xG is
 a benchmark only, never an input feature.
 
@@ -11,6 +11,7 @@ Run from the project root:  streamlit run app/streamlit_app.py
 
 from __future__ import annotations
 
+import base64
 import json
 import sys
 from datetime import datetime
@@ -37,41 +38,41 @@ REPO_URL = "https://github.com/idansajah71-blip/pitchiq"
 DEMO_URL = "https://pitchiq-xg.streamlit.app"
 
 CREDIT = (
-    "Data: StatsBomb Open Data (via statsbombpy). PitchIQ adalah proyek "
-    "hackathon independen dan tidak berafiliasi dengan StatsBomb."
+    "Data: StatsBomb Open Data (via statsbombpy). PitchIQ is an independent "
+    "hackathon project and is not affiliated with StatsBomb."
 )
 
 page_titles: dict[str, str] = {
-    "Shot Map": "Shot Map — kualitas setiap tembakan",
-    "xG Estimator": "xG Estimator — prediksi probabilitas gol",
-    "Evaluasi Model": "Evaluasi Model — seberapa jujur prediksinya",
-    "Insight Pemain & Tim": "Insight Pemain & Tim — leaderboard & rekomendasi",
+    "Shot Map": "Shot Map — the quality of every shot",
+    "xG Estimator": "xG Estimator — live goal probability",
+    "Model Evaluation": "Model Evaluation — how honest is it",
+    "Team & Player Insights": "Team & Player Insights — leaderboards & recommendations",
 }
 
 # Poster configuration per page: index letter, display words, subtitle.
 page_posters: dict[str, dict[str, str]] = {
     "Shot Map": dict(
         index="A", word_1="SHOT", word_2="MAP",
-        subtitle="Setiap titik = satu tembakan, serangan menghadap gawang di kanan. "
-                 "Ukuran & warna titik = xG: makin besar dan makin hijau, makin besar peluang jadi gol.",
+        subtitle="Every point is one shot, attacks facing the goal on the right. "
+                 "Size & colour = xG: the bigger and the greener, the better the chance.",
         asset="hero_shotmap.png",
     ),
     "xG Estimator": dict(
         index="B", word_1="xG", word_2="ESTIMATOR",
-        subtitle="Geser posisi & situasi tembakan apa pun — probabilitas gol dihitung "
-                 "real-time dengan model yang sama seperti di dataset nyata.",
+        subtitle="Place any shot, in any situation — the goal probability is scored "
+                 "in real time by the same model trained on real matches.",
         asset="hero_estimator.png",
     ),
-    "Evaluasi Model": dict(
+    "Model Evaluation": dict(
         index="C", word_1="MODEL", word_2="AUDIT",
-        subtitle="Holdout berkelompok per match tanpa bocor, metrik probabilitas yang "
-                 "jujur, dan benchmark StatsBomb xG diuji pada data yang identik.",
+        subtitle="A match-grouped holdout with no leakage, probability metrics that "
+                 "do not fake accuracy, and StatsBomb xG scored on identical data.",
         asset="hero_evaluation.png",
     ),
-    "Insight Pemain & Tim": dict(
+    "Team & Player Insights": dict(
         index="D", word_1="TEAM", word_2="INSIGHT",
-        subtitle="Leaderboard scoped per pemain–tim–kompetisi, pola zona, dan "
-                 "rekomendasi pelatih berlabel asumsi — bukan klaim kausal.",
+        subtitle="Leaderboards scoped by player–team–competition, zone patterns and "
+                 "manager recommendations with labelled assumptions — not causal claims.",
         asset="hero_insights.png",
     ),
 }
@@ -80,6 +81,7 @@ page_posters: dict[str, dict[str, str]] = {
 INK = "#0b0e14"
 NAVY = "#101a2c"
 NAVY_2 = "#152944"
+BLUE_WEDGE = "rgba(27, 79, 156, 0.5)"
 PANEL = "#111a26"
 LINE = "#26364a"
 GREEN = "#2ec27e"
@@ -192,13 +194,13 @@ SHOT_TYPES = ["Open Play", "Free Kick"]
 # ---------------------------------------------------------------------------
 
 
-@st.cache_resource(show_spinner="Memuat model...")
+@st.cache_resource(show_spinner="Loading model...")
 def load_model() -> dict[str, Any]:
     """Load the artifact: {model_name, pipeline, calibrator, feature_columns, metadata}."""
     return joblib.load(MODELS_DIR / "best_model.joblib")
 
 
-@st.cache_data(show_spinner="Memuat data tembakan...")
+@st.cache_data(show_spinner="Loading shots...")
 def load_shots() -> pd.DataFrame:
     """Load features and score every shot with the saved pipeline."""
     features = pd.read_parquet(FEATURES_PARQUET)
@@ -246,33 +248,44 @@ div[data-testid="stMainBlockContainer"] {{
 /* Poster hero band */
 .piq-hero {{
     position: relative; overflow: hidden;
-    background: linear-gradient(102deg, {NAVY} 0%, {NAVY_2} 52%, rgba(28,94,54,0.55) 100%);
+    background: linear-gradient(102deg, {NAVY} 0%, {NAVY_2} 46%, rgba(23,94,54,0.62) 100%);
     border: 1px solid {LINE};
     border-radius: 16px;
     padding: 20px 24px 16px 24px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }}
-.piq-hero::before {{
-    content: ""; position: absolute; top: -55%; right: 6%;
-    width: 280px; height: 190%;
-    background: linear-gradient(180deg, rgba(46,194,126,0.20), rgba(46,194,126,0));
+.piq-wedge {{
+    position: absolute; top: -55%; right: 3%;
+    width: 250px; height: 190%;
+    background: linear-gradient(180deg, rgba(46,194,126,0.26), rgba(46,194,126,0));
     transform: rotate(16deg);
 }}
-.piq-hero::after {{
-    content: ""; position: absolute; top: 0; bottom: 0; left: 0;
-    width: 3px; background: linear-gradient(180deg, {GREEN}, transparent);
+.piq-wedge2 {{
+    position: absolute; top: -30%; right: 20%;
+    width: 180px; height: 160%;
+    background: linear-gradient(180deg, {BLUE_WEDGE}, rgba(27,79,156,0));
+    transform: rotate(-13deg);
+}}
+.piq-hero .edge {{
+    position: absolute; top: 0; bottom: 0; left: 0; width: 3px;
+    background: linear-gradient(180deg, {GREEN}, transparent);
+}}
+.piq-node {{
+    position: absolute; width: 30px; height: 30px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: {GREEN_DIM}; border: 1.4px dashed rgba(46,194,126,0.55);
+    color: {GREEN};
 }}
 .piq-hero-img {{
-    position: absolute; right: 16px; bottom: -6px; height: 140px;
+    position: absolute; right: 14px; bottom: -6px; height: 142px;
     filter: drop-shadow(0 10px 22px rgba(0,0,0,0.55));
     pointer-events: none;
 }}
 .piq-index {{
     display: inline-flex; align-items: center; justify-content: center;
-    width: 26px; height: 26px; border-radius: 50%;
+    width: 25px; height: 25px; border-radius: 50%;
     border: 1.5px solid {TEXT_DIM}; color: {TEXT_DIM};
-    font: 600 12px/1 {BODY}; letter-spacing: 0;
-    vertical-align: middle; margin-right: 10px;
+    font: 600 12px/1 {BODY}; vertical-align: middle; margin-right: 9px;
 }}
 .piq-word {{
     display: block;
@@ -287,7 +300,6 @@ div[data-testid="stMainBlockContainer"] {{
     -webkit-text-stroke: 1.3px rgba(230,237,243,0.40);
     margin-left: 0.18em;
 }}
-.piq-word .amp {{ color: {GREEN}; }}
 .piq-sub {{
     font: 400 13px/1.5 {BODY}; color: {TEXT_DIM};
     max-width: 560px; margin: 0 0 8px 0;
@@ -302,6 +314,7 @@ div[data-testid="stMainBlockContainer"] {{
     letter-spacing: 0.14em; text-transform: uppercase;
 }}
 .piq-chip svg {{ color: {GREEN}; }}
+.piq-chip.solid {{ border-color: rgba(46,194,126,0.55); color: {GREEN}; }}
 
 /* Section headings: letter circle + spaced caps + rule */
 .piq-section {{
@@ -309,29 +322,33 @@ div[data-testid="stMainBlockContainer"] {{
     margin: 16px 0 8px 0;
 }}
 .piq-section .idx {{
-    flex: 0 0 auto; width: 27px; height: 27px; border-radius: 50%;
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
     background: {GREEN_DIM}; color: {GREEN};
     font: 700 12px/1 {DISPLAY}; border: 1px solid rgba(46,194,126,0.4);
 }}
 .piq-section .t {{
     flex: 0 0 auto; white-space: nowrap;
-    font: 700 12.5px/1.6 {BODY}; letter-spacing: 0.16em;
+    font: 700 12px/1.6 {BODY}; letter-spacing: 0.16em;
     text-transform: uppercase; color: {TEXT};
 }}
+.piq-section .t svg {{ color: {GREEN}; vertical-align: -2px; }}
 .piq-section .rule {{ flex: 1 1 auto; height: 1px; background: {LINE}; }}
 
-/* Metric tiles: dotted border, big numbers */
+/* Metric tiles: dashed border, display-type value, red micro tag */
 div[data-testid="stMetric"] {{
     background: linear-gradient(135deg, {PANEL} 0%, #0f1622 100%);
     border: 1.5px dashed {LINE};
     border-radius: 12px;
     padding: 14px 16px 10px 16px;
 }}
-div[data-testid="stMetricLabel"] p {{ margin-bottom: 2px; }}
-
-/* Dataframe panels */
-div[data-testid="stDataFrame"] {{ border: 1px solid {LINE}; border-radius: 12px; overflow: hidden; }}
+div[data-testid="stMetricLabel"] p {{
+    margin-bottom: 2px;
+    font: 700 10px/1.7 {BODY} !important;
+    letter-spacing: 0.14em; text-transform: uppercase; color: {TEXT_DIM} !important;
+}}
+div[data-testid="stMetricValue"] {{ font-family: {DISPLAY}; font-weight: 700; letter-spacing: 1px; }}
+div[data-testid="stMetricDelta"] svg {{ color: {GREEN} !important; }}
 
 /* Poster panels around key charts */
 .st-key-map-panel, .st-key-goal-panel {{
@@ -339,8 +356,11 @@ div[data-testid="stDataFrame"] {{ border: 1px solid {LINE}; border-radius: 12px;
     border: 1px solid {LINE};
     border-radius: 14px;
     padding: 12px 10px 8px 10px;
-        margin-bottom: 2px;
+    margin-bottom: 2px;
 }}
+
+/* Dataframe panels */
+div[data-testid="stDataFrame"] {{ border: 1px solid {LINE}; border-radius: 12px; overflow: hidden; }}
 
 /* Pill buttons (sidebar) */
 .piq-pill {{
@@ -348,11 +368,16 @@ div[data-testid="stDataFrame"] {{ border: 1px solid {LINE}; border-radius: 12px;
     padding: 6px 14px; border-radius: 999px; margin: 3px 6px 3px 0;
     border: 1.4px solid {LINE}; background: {PANEL};
     color: {TEXT} !important; text-decoration: none !important;
-    font: 600 11px/2 {BODY}; letter-spacing: 0.12em; text-transform: uppercase;
+    font: 600 10.5px/2 {BODY}; letter-spacing: 0.14em; text-transform: uppercase;
     transition: border-color .15s ease, color .15s ease;
 }}
 .piq-pill:hover {{ border-color: {GREEN}; color: {GREEN} !important; }}
 .piq-pill svg {{ color: {GREEN}; }}
+.piq-pill.solid {{
+    background: {GREEN}; border-color: {GREEN}; color: {INK} !important;
+}}
+.piq-pill.solid svg {{ color: {INK}; }}
+.piq-pill.solid:hover {{ background: #37d68f; color: {INK} !important; }}
 
 /* Sidebar brand */
 .piq-brand {{ display: flex; align-items: center; gap: 11px; margin: 6px 0 2px 0; }}
@@ -368,6 +393,25 @@ div[data-testid="stExpander"] {{
     border: 1px solid {LINE} !important; border-radius: 12px !important;
     background: {PANEL} !important;
 }}
+
+/* Poster footer band */
+.piq-band {{
+    position: relative; overflow: hidden;
+    border: 1px solid {LINE}; border-radius: 14px;
+    background: linear-gradient(92deg, {NAVY} 0%, #0e1622 60%, rgba(28,94,54,0.25) 100%);
+    padding: 16px 20px; margin-top: 18px;
+}}
+.piq-band .ghost {{
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    font-family: {DISPLAY}; font-weight: 700; letter-spacing: 2px;
+    font-size: 44px; color: rgba(230,237,243,0.05);
+    text-transform: uppercase; white-space: nowrap; pointer-events: none;
+}}
+.piq-band .lead {{
+    font: 700 11px/1.7 {BODY}; letter-spacing: 0.16em; text-transform: uppercase;
+    color: {TEXT};
+}}
+.piq-band .sub {{ font: 400 11.5px/1.6 {BODY}; color: {TEXT_DIM}; max-width: 640px; }}
 </style>
 """,
         unsafe_allow_html=True,
@@ -375,31 +419,31 @@ div[data-testid="stExpander"] {{
 
 
 def hero(page: str) -> None:
-    """Poster band: giant display words + diagonal band + numbered index."""
+    """Poster band: giant display words + diagonal wedges + numbered index."""
     cfg = page_posters[page]
     img = ASSETS_DIR / cfg["asset"]
     img_html = (
-        f'<img class="piq-hero-img" src="data:image/png;base64,{__import__("base64").b64encode(img.read_bytes()).decode()}" alt="">'
+        f'<img class="piq-hero-img" src="data:image/png;base64,{base64.b64encode(img.read_bytes()).decode()}" alt="">'
         if img.exists() else ""
     )
-    word = (
-        f"<span>{cfg['word_1']}</span>"
-        f"<span class='ghost'>{cfg['word_2']}</span>"
-    )
+    word = f"<span>{cfg['word_1']}</span><span class='ghost'>{cfg['word_2']}</span>"
     chips = "".join(
         f'<span class="piq-chip">{icon(ic, 13)} {txt}</span>'
         for ic, txt in (
-            ("pitch", "12.241 tembakan"),
-            ("zone", "479 match"),
-            ("chart", "3 kompetisi"),
+            ("pitch", "12,241 shots"),
+            ("zone", "479 matches"),
+            ("chart", "3 competitions"),
         )
     )
     st.markdown(
         f"""
 <div class="piq-hero">
+  <span class="piq-wedge"></span><span class="piq-wedge2"></span><span class="edge"></span>
   {img_html}
+  <span class="piq-node" style="top:18px; right:34px;">{icon('target', 15)}</span>
+  <span class="piq-node" style="bottom:16px; right:64px;">{icon('bolt', 15)}</span>
   <span class="piq-index">{cfg['index']}</span>
-  <span class="piq-chip" style="border-color:rgba(46,194,126,0.5);color:{GREEN};">{icon('users',13)} PITCHIQ xG INTELLIGENCE</span>
+  <span class="piq-chip solid">{icon('users', 13)} PITCHIQ xG INTELLIGENCE</span>
   <div class="piq-word">{word}</div>
   <p class="piq-sub">{cfg['subtitle']}</p>
   <div class="piq-crumbs">{chips}</div>
@@ -420,13 +464,19 @@ def section(letter: str, title: str, icon_name: str | None = None) -> None:
 </div>""",
         unsafe_allow_html=True,
     )
-    # Keep real widget spacing tight after the custom rule.
     st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
 
-def footer() -> None:
-    st.divider()
-    st.caption(CREDIT)
+def footer_band() -> None:
+    """Poster footer band with ghost display text."""
+    st.markdown(
+        f"""<div class="piq-band">
+<span class="ghost">STATSBOMB OPEN DATA</span>
+<div class="lead">Built on StatsBomb Open Data</div>
+<div class="sub">{CREDIT}</div>
+</div>""",
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -450,48 +500,48 @@ def shot_map_page() -> None:
     data = load_shots()
     hero("Shot Map")
 
-    section("1", "Filter tembakan", "target")
+    section("1", "Filter the shots", "target")
     head = st.columns(6)
-    team = head[0].selectbox("Tim", ["Semua"] + sorted(data["team"].astype(str).unique().tolist()))
+    team = head[0].selectbox("Team", ["All"] + sorted(data["team"].astype(str).unique().tolist()))
     team_players = sorted(data.loc[data["team"] == team, "player"].astype(str).unique())
     all_players = sorted(data["player"].value_counts().loc[lambda c: c >= 15].index.astype(str).tolist())
-    player = head[1].selectbox("Pemain", ["Semua"] + (team_players if team != "Semua" else all_players))
-    body = head[2].selectbox("Bagian tubuh", ["Semua"] + sorted(data["body_part"].dropna().astype(str).unique().tolist()))
-    shot_type = head[3].selectbox("Tipe tembakan", ["Semua"] + sorted(data["shot_type"].dropna().astype(str).unique().tolist()))
-    goal_filter = head[4].radio("Hasil", ["Semua", "Gol", "Bukan gol"], horizontal=True)
-    show_penalties = head[5].toggle("Sertakan penalti", value=False)
+    player = head[1].selectbox("Player", ["All"] + (team_players if team != "All" else all_players))
+    body = head[2].selectbox("Body part", ["All"] + sorted(data["body_part"].dropna().astype(str).unique().tolist()))
+    shot_type = head[3].selectbox("Shot type", ["All"] + sorted(data["shot_type"].dropna().astype(str).unique().tolist()))
+    goal_filter = head[4].radio("Outcome", ["All", "Goals", "No goals"], horizontal=True)
+    show_penalties = head[5].toggle("Include penalties", value=False)
 
     view = filter_and_display(data, show_penalties)
-    if team != "Semua":
+    if team != "All":
         view = view[view["team"].astype(str) == team]
-    if player != "Semua":
+    if player != "All":
         view = view[view["player"].astype(str) == player]
-    if body != "Semua":
+    if body != "All":
         view = view[view["body_part"].astype(str) == body]
-    if shot_type != "Semua":
+    if shot_type != "All":
         view = view[view["shot_type"].astype(str) == shot_type]
-    if goal_filter == "Gol":
+    if goal_filter == "Goals":
         view = view[view["is_goal"]]
-    elif goal_filter == "Bukan gol":
+    elif goal_filter == "No goals":
         view = view[~view["is_goal"]]
 
     if view.empty:
-        st.info("Tidak ada tembakan pada kombinasi filter ini — longgarkan filternya.")
+        st.info("No shots match this filter combination — loosen one of the filters.")
         return
 
-    section("2", "Ringkasan pilihan", "users")
+    section("2", "Live sample", "users")
     metrics = st.columns(3)
     conversion = view["is_goal"].mean()
-    metrics[0].metric("Tembakan ditampilkan", f"{len(view):,}")
-    metrics[1].metric("Gol", f"{int(view['is_goal'].sum()):,}")
-    mean_label = "Rata-rata xG tampilan" if show_penalties else "Rata-rata PitchIQ xG"
-    metrics[2].metric(mean_label, f"{view['xg_display'].mean():.3f}", delta=f"konversi {conversion:.1%}")
+    metrics[0].metric("Shots displayed", f"{len(view):,}")
+    metrics[1].metric("Goals", f"{int(view['is_goal'].sum()):,}")
+    mean_label = "Mean displayed xG" if show_penalties else "Mean PitchIQ xG"
+    metrics[2].metric(mean_label, f"{view['xg_display'].mean():.3f}", delta=f"conversion {conversion:.1%}")
     if show_penalties:
-        st.caption("xG penalti berasal dari benchmark StatsBomb; non-penalti memakai PitchIQ. Rata-rata gabungan mencampur dua sumber — bukan satu model homogen.")
+        st.caption("Penalty xG comes from the StatsBomb benchmark while non-penalties use PitchIQ, so the combined mean mixes two sources — not one homogeneous model.")
 
     import plotly.graph_objects as go
 
-    section("3", "Peta tembakan", "pitch")
+    section("3", "The shot map", "pitch")
 
     minutes = view["minute"].astype(int).astype(str)
     seconds = view["second"].astype(int).map(lambda s: f"{s:02d}")
@@ -503,7 +553,7 @@ def shot_map_page() -> None:
             view["body_part"].astype(str).values,
             view["shot_type"].astype(str).values,
             view["xg_display"].astype(float).values,
-            np.where(view["is_goal"], "GOL", view["outcome"].astype(str)).astype(object),
+            np.where(view["is_goal"], "GOAL", view["outcome"].astype(str)).astype(object),
         ],
         axis=1,
     )
@@ -527,10 +577,10 @@ def shot_map_page() -> None:
             ),
             customdata=custom,
             hovertemplate=(
-                "<b>%{customdata[0]}</b> • menit %{customdata[1]}<br>"
-                "Tim: %{customdata[2]}<br>"
-                "Bagian: %{customdata[3]} • Tipe: %{customdata[4]}<br>"
-                "xG: %{customdata[5]:.3f} • Hasil: %{customdata[6]}<extra></extra>"
+                "<b>%{customdata[0]}</b> • minute %{customdata[1]}<br>"
+                "Team: %{customdata[2]}<br>"
+                "Body: %{customdata[3]} • Type: %{customdata[4]}<br>"
+                "xG: %{customdata[5]:.3f} • Outcome: %{customdata[6]}<extra></extra>"
             ),
         )
     )
@@ -550,12 +600,12 @@ def shot_map_page() -> None:
 
     # Poster echo of the empty half: restrained display-type watermark.
     fig.add_annotation(
-        x=30, y=42, text="<b>12.241</b><br><span style='font-size:12px'>TEMBAKAN</span>",
+        x=30, y=42, text="<b>12,241</b><br><span style='font-size:12px'>SHOTS</span>",
         showarrow=False, font=dict(family=DISPLAY, size=44, color="rgba(230,237,243,0.08)"),
         align="center",
     )
     fig.add_annotation(
-        x=30, y=31, text="rata-rata PitchIQ xG 0.098",
+        x=30, y=31, text="mean PitchIQ xG 0.098",
         showarrow=False, font=dict(family=BODY, size=11, color="rgba(46,194,126,0.32)"),
         align="center",
     )
@@ -567,9 +617,9 @@ def shot_map_page() -> None:
         )
 
     st.caption(
-        "**Cara membaca:** titik besar hijau = peluang bagus (xG tinggi); titik "
-        "kecil merah = percobaan berisiko (xG rendah). Pakai filter di atas "
-        "untuk menjelajah tim/pemain/konteks tembakan."
+        "**How to read:** big green points = good chances (high xG); small red "
+        "points = low-probability attempts. Use the filters above to explore "
+        "teams, players and shot context."
     )
 
 
@@ -617,13 +667,13 @@ def estimator_page() -> None:
 
     left, right = st.columns([1, 1.4], gap="large")
     with left:
-        section("1", "Posisi & situasi", "target")
-        x = st.slider("Kedalaman tembakan (x: 60 = garis tengah, 120 = gawang lawan)", 0, 119, 110)
-        y = st.slider("Posisi samping (y: 40 = tengah gawang)", 0, 80, 40)
-        body_part = st.selectbox("Bagian tubuh", BODY_PARTS)
-        shot_type = st.selectbox("Tipe tembakan", SHOT_TYPES)
-        under_pressure = st.checkbox("Tembakan di bawah tekanan")
-        first_time = st.checkbox("Tembakan first-time (tanpa kontrol dulu)")
+        section("1", "Set the shot", "target")
+        x = st.slider("Shot depth (x: 60 = halfway line, 120 = opponent's goal)", 0, 119, 110)
+        y = st.slider("Lateral position (y: 40 = centre of goal)", 0, 80, 40)
+        body_part = st.selectbox("Body part", BODY_PARTS)
+        shot_type = st.selectbox("Shot type", SHOT_TYPES)
+        under_pressure = st.checkbox("Taken under pressure")
+        first_time = st.checkbox("First-time finish (no first touch)")
 
     with right:
         row, distance, angle = build_estimator_row(x, y, body_part, shot_type, under_pressure, first_time)
@@ -639,19 +689,19 @@ def estimator_page() -> None:
         else:
             prob_color = RED
 
-        section("2", "Hasil model", "bolt")
+        section("2", "Model verdict", "bolt")
         prob_col, dist_col, ang_col = st.columns([1.3, 1, 1])
         with prob_col:
             st.markdown(
                 f"""<div style="font-family:{DISPLAY};font-weight:700;letter-spacing:1px;
                 font-size:44px;line-height:1.05;color:{prob_color};">{probability:.1%}</div>
                 <div style="font:600 10px/1.6 {BODY};letter-spacing:0.16em;text-transform:uppercase;
-                color:{TEXT_DIM};margin-top:2px;">Peluang jadi gol</div>""",
+                color:{TEXT_DIM};margin-top:2px;">Goal probability</div>""",
                 unsafe_allow_html=True,
             )
             st.progress(min(probability, 1.0))
-        dist_col.metric("Jarak ke gawang", f"{distance:.1f}")
-        ang_col.metric("Sudut gawang terbuka", f"{angle:.1f}")
+        dist_col.metric("Distance to goal", f"{distance:.1f}")
+        ang_col.metric("Open goal angle", f"{angle:.1f}")
 
         import plotly.graph_objects as go
 
@@ -672,8 +722,8 @@ def estimator_page() -> None:
                 x=[x], y=[y], mode="markers",
                 marker=dict(size=16, color=RED, symbol="x",
                             line=dict(width=0, color=RED)),
-                name="Tembakan",
-                hovertemplate=f"x={x:.0f}, y={y:.0f}, peluang {probability:.0%}<extra></extra>"
+                name="Shot",
+                hovertemplate=f"x={x:.0f}, y={y:.0f}, probability {probability:.0%}<extra></extra>",
             )
         )
         goal_fig.update_layout(
@@ -693,21 +743,23 @@ def estimator_page() -> None:
                        scaleanchor="y", scaleratio=1.0),
             yaxis=dict(range=[22, 58], showgrid=False, zeroline=False, visible=False),
         )
+
         with st.container(key="goal-panel"):
             st.plotly_chart(
                 goal_fig, width="stretch",
                 config=dict(displayModeBar=False, displaylogo=False),
             )
 
-    with st.expander("Pahami angkanya"):
+    with st.expander("Understand the number"):
         st.markdown(
-            "- **Peluang** = estimasi bagian tembakan serupa yang menjadi gol pada "
-            "situasi identik, dari puluhan ribu tembakan nyata.\n"
-            "- Estimator **tidak membaca posisi bek/kiper** — fitur freeze-frame "
-            "diimputasi median dataset, jadi ini situasi 'tenang'. Dengan tekanan "
-            "nyata biasanya menurunkan peluangnya lagi.\n"
-            f"- Pembanding: konversi penalti pada data {penalty_rate:.0%} — penalti "
-            "dilaporkan terpisah karena 12 yard adalah tugas yang berbeda."
+            "- **Probability** = the share of similar shots that became goals in "
+            "identical situations, learned from tens of thousands of real attempts.\n"
+            "- The estimator **does not read defender/keeper positions** — "
+            "freeze-frame features are median-imputed, so this is a 'quiet' situation. "
+            "Real pressure usually lowers it further.\n"
+            f"- For scale: penalty conversion in this dataset is {penalty_rate:.0%} — "
+            "penalties are reported separately because a 12-yard one-on-one is a "
+            "different task."
         )
 
 
@@ -731,7 +783,7 @@ def _test_split() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
 
 
 def evaluation_page() -> None:
-    hero("Evaluasi Model")
+    hero("Model Evaluation")
     artifact = load_model()
     metadata = artifact["metadata"]
     X_test, y_test, sb_xg = _test_split()
@@ -740,9 +792,18 @@ def evaluation_page() -> None:
     if calibrator is not None:
         probabilities = calibrator.predict(probabilities)
 
-    section("1", "Skor holdout", "chart")
+    test_matches = metadata["split"]["test_matches"]
+    st.markdown("".join([
+        '<div class="piq-crumbs">',
+        f'<span class="piq-chip">holdout: {int(test_matches)} matches</span>',
+        '<span class="piq-chip">grouped seed 20261029</span>',
+        '<span class="piq-chip">zero match overlap</span>',
+        "</div>",
+    ]), unsafe_allow_html=True)
+
+    section("1", "Holdout scores", "chart")
     metrics_head = st.columns(4)
-    metrics_head[0].metric("Model deployment", "Logistic Regression")
+    metrics_head[0].metric("Deployment model", "Logistic Regression")
     metrics_head[1].metric("ROC-AUC (test)", f"{metadata['test_metrics']['roc_auc']:.3f}")
     metrics_head[2].metric("Log loss (test)", f"{metadata['test_metrics']['log_loss']:.3f}")
     metrics_head[3].metric("Brier (test)", f"{metadata['test_metrics']['brier']:.4f}")
@@ -750,44 +811,45 @@ def evaluation_page() -> None:
     left, right = st.columns([1.15, 1], gap="large")
 
     with right:
-        section("2", "Tabel perbandingan", "users")
+        section("2", "Model comparison", "users")
         comparison = load_csv("model_comparison.csv")
         show = comparison[
             ["model", "test_roc_auc", "test_log_loss", "test_brier",
              "cv_roc_auc_mean", "cv_roc_auc_std"]
         ].copy()
-        show.columns = ["Model", "AUC test", "Log loss", "Brier", "AUC CV", "± CV"]
+        show.columns = ["Model", "Test AUC", "Log loss", "Brier", "CV AUC", "± CV"]
         st.dataframe(
             show,
             width="stretch",
             hide_index=True,
             column_config={
-                "AUC test": st.column_config.NumberColumn(format="%.3f"),
+                "Test AUC": st.column_config.NumberColumn(format="%.3f"),
                 "Log loss": st.column_config.NumberColumn(format="%.3f"),
                 "Brier": st.column_config.NumberColumn(format="%.4f"),
-                "AUC CV": st.column_config.NumberColumn(format="%.3f"),
+                "CV AUC": st.column_config.NumberColumn(format="%.3f"),
                 "± CV": st.column_config.NumberColumn(format="±%.3f"),
             },
         )
         st.caption(
-            "Tuned-tree CV adalah eksploratif (belum nested CV). Metrik StatsBomb "
-            "ikut diuji hanya untuk konteks, bukan lawan pelatihan."
+            "Tuned-tree CV numbers are exploratory (no nested CV yet). StatsBomb "
+            "metrics are scored on identical data purely for context, they never "
+            "opposed the models in training."
         )
 
         left_ablation, right_ablation = st.columns(2, gap="small")
         with left_ablation:
-            st.markdown("##### Ablasi LogReg")
+            st.markdown("##### LogReg ablation")
             ablation = load_csv("logreg_ablation.csv")
             st.dataframe(
                 ablation[["stage", "roc_auc", "brier"]].rename(
-                    columns={"stage": "Tahap", "roc_auc": "AUC", "brier": "Brier"}
+                    columns={"stage": "Stage", "roc_auc": "AUC", "brier": "Brier"}
                 ),
                 width="stretch", hide_index=True,
                 column_config={"AUC": st.column_config.NumberColumn(format="%.3f"),
                                "Brier": st.column_config.NumberColumn(format="%.4f")},
             )
         with right_ablation:
-            st.markdown("##### Kalibrasi")
+            st.markdown("##### Calibration")
             calib = load_csv("calibration_comparison.csv")
             st.dataframe(
                 calib[["model", "variant", "brier", "calibration_slope"]].rename(
@@ -803,7 +865,7 @@ def evaluation_page() -> None:
         from sklearn.calibration import calibration_curve
         from sklearn.metrics import roc_curve
 
-        section("3", "Kurva kualitas probabilitas", "chart")
+        section("3", "Probability curves", "chart")
         fig = go.Figure()
         fpr, tpr, _ = roc_curve(y_test, probabilities)
         fig.add_trace(go.Scatter(
@@ -817,7 +879,7 @@ def evaluation_page() -> None:
             line=dict(color=AMBER, width=2, dash="dot"),
         ))
         fig.add_trace(go.Scatter(
-            x=[0, 1], y=[0, 1], mode="lines", name="Acak",
+            x=[0, 1], y=[0, 1], mode="lines", name="Random",
             line=dict(color="#5b6b7e", width=1.2, dash="dash"),
         ))
         fig.update_layout(
@@ -843,28 +905,28 @@ def evaluation_page() -> None:
             line=dict(color=AMBER, width=2, dash="dot"), marker=dict(size=7),
         ))
         cal_fig.add_trace(go.Scatter(
-            x=[0, 1], y=[0, 1], mode="lines", name="Kalibrasi sempurna",
+            x=[0, 1], y=[0, 1], mode="lines", name="Perfect calibration",
             line=dict(color="#5b6b7e", width=1.2, dash="dash"),
         ))
         cal_fig.update_layout(
             template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             hoverlabel=HOVERLABEL, font=dict(family=BODY, color=TEXT_DIM),
-            xaxis=dict(title="Rata-rata xG yang diprediksi", range=[0, 0.5], gridcolor="#1a2434", zeroline=False),
-            yaxis=dict(title="Frekuensi gol yang terjadi", range=[0, 0.5], gridcolor="#1a2434", zeroline=False),
+            xaxis=dict(title="Mean predicted xG", range=[0, 0.5], gridcolor="#1a2434", zeroline=False),
+            yaxis=dict(title="Observed goal rate", range=[0, 0.5], gridcolor="#1a2434", zeroline=False),
             height=400, margin=dict(l=44, r=16, t=28, b=44),
         )
         st.plotly_chart(cal_fig, width="stretch")
 
-    with st.expander("Cara membaca metrik (bahasa awam)"):
+    with st.expander("How to read the metrics (plain language)"):
         st.markdown(
-            "- **ROC-AUC** — seberapa sering model mengurutkan dua tembakan acak "
-            "dengan benar (gol vs bukan). 0.5 = menebak, 1.0 = sempurna.\n"
-            "- **Log loss** — hukuman keyakinan yang salah; prediksi 99% pada shot "
-            "gagal dihukum lebih keras dari prediksi 60%. Kecil = baik.\n"
-            "- **Brier** — rata-rata selisih kuadrat antara probabilitas dan hasil "
-            "nyata; metrik jujur untuk semua rentang xG. Kecil = baik.\n"
-            "- **Kalibrasi** — shot bernilai 0.25 harus masuk ~seperempat waktu; "
-            "kurva yang mengikuti diagonal = boleh dipercaya."
+            "- **ROC-AUC** — how often the model ranks a random goal above a random "
+            "non-goal. 0.5 = guessing, 1.0 = perfect.\n"
+            "- **Log loss** — the penalty for wrong confidence; a 99% call on a miss "
+            "is punished far harder than a 60% call. Lower = better.\n"
+            "- **Brier** — mean squared gap between probability and outcome; honest "
+            "across the full xG range. Lower = better.\n"
+            "- **Calibration** — shots valued at 0.25 should score about a quarter "
+            "of the time; a curve hugging the diagonal deserves trust."
         )
 
 
@@ -874,31 +936,31 @@ def evaluation_page() -> None:
 
 
 def insights_page() -> None:
-    hero("Insight Pemain & Tim")
+    hero("Team & Player Insights")
     player_stats = load_csv("player_summary.csv").set_index("player")
     team_stats = load_csv("team_summary.csv")
 
-    section("1", "Kontrol sampel", "target")
+    section("1", "Sample-size control", "target")
     control, _ = st.columns([1, 1.4])
     with control:
         min_shots = st.slider(
-            "Minimum jumlah tembakan per pemain", 5, 100, MIN_SHOTS_DEFAULT, step=5
+            "Minimum shots per player", 5, 100, MIN_SHOTS_DEFAULT, step=5
         )
     st.caption(
-        "Gol − xG pada sampel kecil itu bising; slider ini menjaga sinyal "
-        "tetap bisa dibaca tanpa mengubah arah kesimpulannya."
+        "Goals − xG is noisy on small samples; this slider keeps signals readable "
+        "without steering conclusions."
     )
 
     qualified = player_stats[player_stats["shots"] >= min_shots]
 
-    section("2", "Pemain & penyedia peluang", "users")
+    section("2", "Players & providers", "users")
     left, right = st.columns(2, gap="large")
 
     with left:
-        st.markdown("##### Leaderboard pemain (tembakan sendiri, non-penalti)")
+        st.markdown("##### Player leaderboard (own shots, non-penalty)")
         sort_metric = st.selectbox(
-            "Urutkan berdasarkan",
-            ["xG/shot (kualitas)", "goals − xG (finishing)", "total xG (volume)"],
+            "Sort by",
+            ["xG/shot (quality)", "goals − xG (finishing)", "total xG (volume)"],
         )
         if sort_metric.startswith("xG/shot"):
             ranked = qualified.sort_values("xg_per_shot", ascending=False)
@@ -909,24 +971,24 @@ def insights_page() -> None:
         table = ranked.head(15)[
             ["team", "competition", "shots", "goals", "xg_pitchiq", "xg_per_shot", "goals_minus_xg"]
         ].copy()
-        table.insert(0, "Pemain", ranked.head(15).index.astype(str))
+        table.insert(0, "Player", ranked.head(15).index.astype(str))
         table.columns = [
-            "Pemain", "Tim", "Kompetisi", "Tembakan", "Gol",
-            "Total xG", "xG/tembakan", "Gol − xG",
+            "Player", "Team", "Competition", "Shots", "Goals",
+            "Total xG", "xG/shot", "Goals − xG",
         ]
         st.dataframe(
             table,
             width="stretch", hide_index=True,
             column_config={
-                "Tembakan": st.column_config.NumberColumn(format="int"),
-                "Gol": st.column_config.NumberColumn(format="int"),
+                "Shots": st.column_config.NumberColumn(format="int"),
+                "Goals": st.column_config.NumberColumn(format="int"),
                 "Total xG": st.column_config.NumberColumn(format="%.2f"),
-                "xG/tembakan": st.column_config.NumberColumn(format="%.3f"),
-                "Gol − xG": st.column_config.NumberColumn(format="%+.2f"),
+                "xG/shot": st.column_config.NumberColumn(format="%.3f"),
+                "Goals − xG": st.column_config.NumberColumn(format="%+.2f"),
             },
         )
 
-        st.markdown(f"##### Penyedia peluang — min {MIN_ASSISTS} assisted shots (key-pass linked)")
+        st.markdown(f"##### Chance providers — min {MIN_ASSISTS} assisted shots (key-pass linked)")
         if "assists" in player_stats.columns and player_stats["assists"].notna().any():
             creators = (
                 player_stats[player_stats["assists"] >= MIN_ASSISTS]
@@ -934,51 +996,51 @@ def insights_page() -> None:
                 .head(10)
             )
             creator_table = creators[["team", "competition", "assists", "assisted_goals", "assisted_xg"]].copy()
-            creator_table.insert(0, "Pemain", creators.index.astype(str))
+            creator_table.insert(0, "Player", creators.index.astype(str))
             creator_table.columns = [
-                "Pemain", "Tim", "Kompetisi", "Assisted shots", "Gol dari peluang", "xG assist"
+                "Player", "Team", "Competition", "Assisted shots", "Goals created", "Assisted xG"
             ]
             st.dataframe(
                 creator_table,
                 width="stretch", hide_index=True,
                 column_config={
                     "Assisted shots": st.column_config.NumberColumn(format="int"),
-                    "Gol dari peluang": st.column_config.NumberColumn(format="int"),
-                    "xG assist": st.column_config.NumberColumn(format="%.2f"),
+                    "Goals created": st.column_config.NumberColumn(format="int"),
+                    "Assisted xG": st.column_config.NumberColumn(format="%.2f"),
                 },
             )
-            st.caption("Assisted shots = key pass yang tertaut langsung ke tembakan, bukan total assist resmi.")
+            st.caption("Assisted shots = key passes linked directly to a shot, not the official assist statistic.")
         else:
-            st.info("Data creators belum dibangun. Jalankan `python -m src.creators`.")
+            st.info("Creator data is not built yet. Run `python -m src.creators`.")
 
     with right:
-        st.markdown("##### Tim: pemilihan tembakan & selisih xG")
+        st.markdown("##### Teams: shot selection & xG differential")
         team_view = team_stats[team_stats["shots_for"] >= 100].sort_values("xg_for", ascending=False).copy()
         team_show = team_view.head(15)[
             ["team", "shots_for", "xg_for", "xg_per_shot_for", "low_quality_share", "xg_diff"]
         ].copy()
         team_show.columns = [
-            "Tim", "Tembakan", "xG untuk", "xG/tembakan",
-            "Share tembakan < 0.05 xG", "Selisih xG (untuk−terhadap)",
+            "Team", "Shots", "xG for", "xG/shot",
+            "Shots < 0.05 xG share", "xG differential (for−against)",
         ]
         st.dataframe(
             team_show,
             width="stretch", hide_index=True,
             column_config={
-                "Tembakan": st.column_config.NumberColumn(format="int"),
-                "xG untuk": st.column_config.NumberColumn(format="%.1f"),
-                "xG/tembakan": st.column_config.NumberColumn(format="%.3f"),
-                "Share tembakan < 0.05 xG": st.column_config.NumberColumn(format="%.1%"),
-                "Selisih xG (untuk−terhadap)": st.column_config.NumberColumn(format="%+.1f"),
+                "Shots": st.column_config.NumberColumn(format="int"),
+                "xG for": st.column_config.NumberColumn(format="%.1f"),
+                "xG/shot": st.column_config.NumberColumn(format="%.3f"),
+                "Shots < 0.05 xG share": st.column_config.NumberColumn(format="%.1%"),
+                "xG differential (for−against)": st.column_config.NumberColumn(format="%+.1f"),
             },
         )
 
         zone_fig = FIGURES_DIR / "fig10_team_shot_selection.png"
         if zone_fig.exists():
-            st.markdown("##### Pemilihan tembakan per tim")
+            st.markdown("##### Team shot selection")
             st.image(str(zone_fig))
 
-    section("3", "Zona paling produktif", "zone")
+    section("3", "Most valuable zones", "zone")
     zone_fig = FIGURES_DIR / "fig9_zone_map.png"
     left_zone, right_zone = st.columns([1.4, 1], gap="large")
     with left_zone:
@@ -988,19 +1050,19 @@ def insights_page() -> None:
         zone = load_csv("zone_summary.csv")
         zone_top = zone[zone["shots"] >= 60].sort_values("mean_pitchiq_xg", ascending=False).head(8)
         zone_top = zone_top[["x_band", "y_band", "shots", "conversion", "mean_pitchiq_xg"]]
-        zone_top.columns = ["Band x", "Band y", "Tembakan", "Konversi", "Rata-rata xG"]
+        zone_top.columns = ["x band", "y band", "Shots", "Conversion", "Mean xG"]
         st.dataframe(
             zone_top,
             width="stretch", hide_index=True,
             column_config={
-                "Tembakan": st.column_config.NumberColumn(format="int"),
-                "Konversi": st.column_config.NumberColumn(format="%.1%"),
-                "Rata-rata xG": st.column_config.NumberColumn(format="%.3f"),
+                "Shots": st.column_config.NumberColumn(format="int"),
+                "Conversion": st.column_config.NumberColumn(format="%.1%"),
+                "Mean xG": st.column_config.NumberColumn(format="%.3f"),
             },
         )
-        st.caption("Zona band lateral yang mirip dipasangkan sejak audit; baris di atas adalah pasangan terbaik setelah digabung.")
+        st.caption("Mirrored lateral bands are paired together since the audit; the rows above are the best combined pairs.")
 
-    with st.expander("Rekomendasi untuk pelatih (dari model, seluruh label asumsi)", expanded=True):
+    with st.expander("Manager recommendations (from the model, every number labelled)", expanded=True):
         st.markdown(load_markdown("coach_recommendations.md"))
 
 
@@ -1009,12 +1071,12 @@ def insights_page() -> None:
 # ---------------------------------------------------------------------------
 
 
-def sidebar() -> None:
+def sidebar() -> str:
     """Branded navigation rail."""
     logo = ASSETS_DIR / "logo.svg"
     logo_html = (
         f'<span class="mark"><img src="data:image/svg+xml;base64,'
-        f'{__import__("base64").b64encode(logo.read_bytes()).decode()}" width="34" height="34" alt=""></span>'
+        f'{base64.b64encode(logo.read_bytes()).decode()}" width="34" height="34" alt=""></span>'
         if logo.exists() else '<span class="mark"></span>'
     )
     st.sidebar.markdown(
@@ -1026,8 +1088,8 @@ def sidebar() -> None:
     page = st.sidebar.selectbox("Menu", list(page_titles.keys()))
     st.sidebar.divider()
     st.sidebar.markdown(
-        f"""<a class="piq-pill" href="{REPO_URL}" target="_blank">{icon('github', 14)} REPO GITHUB</a>
-<a class="piq-pill" href="{DEMO_URL}" target="_blank">{icon('arrow', 13)} DEMO LIVE</a>""",
+        f"""<a class="piq-pill solid" href="{DEMO_URL}" target="_blank">{icon('arrow', 13)} LIVE DEMO</a>
+<a class="piq-pill" href="{REPO_URL}" target="_blank">{icon('github', 14)} GITHUB REPO</a>""",
         unsafe_allow_html=True,
     )
     st.sidebar.divider()
@@ -1087,28 +1149,26 @@ def main() -> None:
 
     page = sidebar()
 
-    # Poster hero is rendered inside each page function, right before content.
-
     # Artifact integrity: warn if model/reports do not match the audited
     # protocol (regeneration missing, or files older than the model build).
     if not artifacts_fresh(MODELS_DIR / "metadata.json"):
         st.warning(
-            "Artefak model dan/atau laporan belum sinkron dengan pipeline "
-            "post-audit. Jalankan pipeline lengkap (`data`, `features`, `eda`, "
-            "`train`, `creators`, `insights`), lalu mulai ulang aplikasi — jangan "
-            "kutip metriknya sebagai hasil final."
+            "Model and/or report artifacts are out of sync with the post-audit "
+            "pipeline. Run the full pipeline (`data`, `features`, `eda`, `train`, "
+            "`creators`, `insights`) and restart the app — do not quote its "
+            "numbers as final results."
         )
 
     if page == "Shot Map":
         shot_map_page()
     elif page == "xG Estimator":
         estimator_page()
-    elif page == "Evaluasi Model":
+    elif page == "Model Evaluation":
         evaluation_page()
     else:
         insights_page()
 
-    footer()
+    footer_band()
 
 
 if __name__ == "__main__":

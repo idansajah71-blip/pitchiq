@@ -13,8 +13,8 @@ APP = ROOT / "app" / "streamlit_app.py"
 PAGES = [
     "Shot Map",
     "xG Estimator",
-    "Evaluasi Model",
-    "Insight Pemain & Tim",
+    "Model Evaluation",
+    "Team & Player Insights",
 ]
 
 
@@ -39,13 +39,13 @@ def test_estimator_slider_updates_distance_and_renders_cleanly() -> None:
     app.run()
     assert not app.exception
     initial_distance = next(
-        metric.value for metric in app.metric if metric.label == "Jarak ke gawang"
+        metric.value for metric in app.metric if metric.label == "Distance to goal"
     )
     sliders = app.slider  # depth slider is the first slider on the page
     sliders[0].set_value(104)
     app.run()
     assert not app.exception
     updated_distance = next(
-        metric.value for metric in app.metric if metric.label == "Jarak ke gawang"
+        metric.value for metric in app.metric if metric.label == "Distance to goal"
     )
     assert initial_distance != updated_distance
