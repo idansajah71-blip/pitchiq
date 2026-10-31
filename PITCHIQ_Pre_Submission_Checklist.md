@@ -1,4 +1,4 @@
-# PitchIQ — pre-submission checklist
+# ShotWorth — pre-submission checklist
 
 The source code in this archive has been audited, but `models/` and `reports/` still contain pre-audit artifacts. **Do not submit the existing numbers or treat the app as final until these steps succeed on a machine with package access.**
 
@@ -46,7 +46,7 @@ Confirm:
 - All four pages render; changing the estimator location updates displayed distance/probability.
 - The shot-zone usage heatmap has percentages, not a blank left panel.
 - Player rows are separated by team/competition; creators who did not shoot can still appear in the creator table.
-- Penalty xG is labelled as StatsBomb benchmark data, not PitchIQ's non-penalty model.
+- Penalty xG is labelled as StatsBomb benchmark data, not ShotWorth's non-penalty model.
 - `models/metadata.json` contains `audit_protocol_version: 2026-10-29-v1` and `split.test_split_seed: 20261029`.
 - Refresh `DEVPOST.md` and `PITCH_SCRIPT.md` only with regenerated metrics. The changed-seed holdout is still a development evaluation because the dataset and earlier results were already seen; do not describe it as a pristine independent benchmark.
 

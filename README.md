@@ -1,4 +1,4 @@
-# PitchIQ — Expected Goals Intelligence
+# ShotWorth — Expected Goals Intelligence
 
 Shot-level expected goals (xG) built from StatsBomb Open Data and turned into
 **actionable insight for coaches and analysts** — not just an accuracy
@@ -6,7 +6,7 @@ leaderboard.
 
 > Data provided by **StatsBomb** via their Open Data initiative
 > (https://github.com/statsbomb/open-data). All analysis and errors are ours.
-> PitchIQ is an independent hackathon project and is not affiliated with
+> ShotWorth is an independent hackathon project and is not affiliated with
 > StatsBomb.
 
 ## Live demo
@@ -21,14 +21,14 @@ streamlit run app/streamlit_app.py
 
 | ![Shot map](reports/figures/fig1_shot_map.png) |
 |---|
-| *Exploratory shot map by outcome (goal/no goal). The live app's interactive Plotly map uses PitchIQ xG for size/colour and exposes filters and hover details.* |
+| *Exploratory shot map by outcome (goal/no goal). The live app's interactive Plotly map uses ShotWorth xG for size/colour and exposes filters and hover details.* |
 
 ## The problem
 
 A coach asks: *which shots should we be taking, and which finishing cases are
 real skill or luck?* Raw shot counts understate quality — a 40-yard daisycutter
 and a one-touch finish goal count the same in the box score, but carry wildly
-different probabilities. PitchIQ answers with a transparent xG model (every
+different probabilities. ShotWorth answers with a transparent xG model (every
 input is known **before** the shot is taken) plus player/team/zone views that
 lead directly to concrete instructions.
 
@@ -58,7 +58,7 @@ lead directly to concrete instructions.
 
 > **Evaluation framing.** Logistic Regression is the pre-declared deployment
 > baseline for transparency; tuned-tree CV scores are exploratory comparators
-> (nested CV is not yet implemented), so no claim is made that PitchIQ matches
+> (nested CV is not yet implemented), so no claim is made that ShotWorth matches
 > StatsBomb's specialist xG. Because the dataset was examined during
 > development, the refreshed grouped holdout is a development evaluation, not a
 > pristine independent benchmark. Protocol: `audit_protocol_version
@@ -151,7 +151,7 @@ Requires Python 3.11+. Run `python -m pytest tests/ -q`; 22 tests should run whe
 ## Project structure
 
 ```
-pitchiq/
+shotworth/
 ├── app/streamlit_app.py        # 4-page Streamlit app (dark theme)
 ├── src/
 │   ├── data.py                 # StatsBomb download + caching + audit

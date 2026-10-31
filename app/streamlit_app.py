@@ -1,4 +1,4 @@
-"""PitchIQ — Expected Goals Intelligence (Streamlit UI).
+"""ShotWorth — Expected Goals Intelligence (Streamlit UI).
 
 Sportswear-poster design language: giant display typography, diagonal
 navy/green bands, dashed stat tiles, numbered sections and real inline-SVG
@@ -34,16 +34,16 @@ MIN_SHOTS_DEFAULT = 15
 MIN_ASSISTS = 10
 ASSETS_DIR = ROOT / "app" / "assets"
 
-REPO_URL = "https://github.com/idansajah71-blip/pitchiq"
+REPO_URL = "https://github.com/idansajah71-blip/shotworth"
 DEMO_URL = "https://pitchiq-xg.streamlit.app"
 
 CREDIT = (
-    "Data: StatsBomb Open Data (via statsbombpy). PitchIQ is an independent "
+    "Data: StatsBomb Open Data (via statsbombpy). ShotWorth is an independent "
     "hackathon project and is not affiliated with StatsBomb."
 )
 
 page_titles: dict[str, str] = {
-    "Front Page": "PitchIQ — every shot has a price",
+    "Front Page": "ShotWorth — every shot has a price",
     "Shot Map": "Shot Map — the quality of every shot",
     "Match Timeline": "Match Timeline — the xG race, replayed minute by minute",
     "xG Estimator": "xG Estimator — live goal probability",
@@ -231,7 +231,7 @@ def load_shots() -> pd.DataFrame:
     calibrator = artifact.get("calibrator")
     if calibrator is not None:
         probabilities = calibrator.predict(probabilities)
-    features["pitchiq_xg"] = probabilities
+    features["shotworth_xg"] = probabilities
     return features
 
 
@@ -531,7 +531,7 @@ def hero(page: str) -> None:
   <span class="piq-node" style="top:18px; right:34px;">{icon('target', 15)}</span>
   <span class="piq-node" style="bottom:16px; right:64px;">{icon('bolt', 15)}</span>
   <span class="piq-index">{cfg['index']}</span>
-  <span class="piq-chip solid">{icon('users', 13)} PITCHIQ xG INTELLIGENCE</span>
+  <span class="piq-chip solid">{icon('users', 13)} SHOTWORTH xG INTELLIGENCE</span>
   <div class="piq-word">{word}</div>
   <p class="piq-sub">{cfg['subtitle']}</p>
   <div class="piq-crumbs">{chips}</div>
@@ -653,10 +653,10 @@ def filter_and_display(data: pd.DataFrame, show_penalties: bool) -> pd.DataFrame
     view = data.copy()
     if show_penalties:
         # Penalty rows are outside the model; show the StatsBomb benchmark there.
-        view["xg_display"] = np.where(view["is_penalty"], view["xg_statsbomb"], view["pitchiq_xg"])
+        view["xg_display"] = np.where(view["is_penalty"], view["xg_statsbomb"], view["shotworth_xg"])
     else:
         view = view[~view["is_penalty"].fillna(False)]
-        view["xg_display"] = view["pitchiq_xg"]
+        view["xg_display"] = view["shotworth_xg"]
     return view
 
 
@@ -701,10 +701,10 @@ def shot_map_page() -> None:
     conversion = view["is_goal"].mean()
     metrics[0].metric("Shots displayed", f"{len(view):,}")
     metrics[1].metric("Goals", f"{int(view['is_goal'].sum()):,}")
-    mean_label = "Mean displayed xG" if show_penalties else "Mean PitchIQ xG"
+    mean_label = "Mean displayed xG" if show_penalties else "Mean ShotWorth xG"
     metrics[2].metric(mean_label, f"{view['xg_display'].mean():.3f}", delta=f"conversion {conversion:.1%}")
     if show_penalties:
-        st.caption("Penalty xG comes from the StatsBomb benchmark while non-penalties use PitchIQ, so the combined mean mixes two sources — not one homogeneous model.")
+        st.caption("Penalty xG comes from the StatsBomb benchmark while non-penalties use ShotWorth, so the combined mean mixes two sources — not one homogeneous model.")
 
     import plotly.graph_objects as go
 
@@ -772,7 +772,7 @@ def shot_map_page() -> None:
         align="center",
     )
     fig.add_annotation(
-        x=30, y=31, text="mean PitchIQ xG 0.098",
+        x=30, y=31, text="mean ShotWorth xG 0.098",
         showarrow=False, font=dict(family=BODY, size=11, color="rgba(46,194,126,0.32)"),
         align="center",
     )
@@ -802,8 +802,8 @@ def timeline_page() -> None:
     hero("Match Timeline")
     data = load_shots()
 
-    # Match catalog: most eventful matches first (by total PitchIQ xG).
-    totals = data.groupby("match_id")["pitchiq_xg"].sum().sort_values(ascending=False)
+    # Match catalog: most eventful matches first (by total ShotWorth xG).
+    totals = data.groupby("match_id")["shotworth_xg"].sum().sort_values(ascending=False)
     teams_by_match = data.groupby("match_id")["team"].agg(
         lambda s: s.astype(str).value_counts().index.tolist()
     )
@@ -832,7 +832,7 @@ def timeline_page() -> None:
     if len(teams) > 1:
         colors[teams[1]] = RED
     max_minute = int(md["minute"].max())
-    non_pen_xg = md.loc[~md["is_penalty"].fillna(False), "pitchiq_xg"]
+    non_pen_xg = md.loc[~md["is_penalty"].fillna(False), "shotworth_xg"]
     xg_cmax = float(np.percentile(non_pen_xg, 98)) if len(non_pen_xg) else 0.5
 
     ss = st.session_state
@@ -862,7 +862,7 @@ def timeline_page() -> None:
         for i, team in enumerate(teams[:2]):
             part = upto[upto["team"].astype(str) == team]
             goals = int(part["is_goal"].sum())
-            xg = float(part.loc[~part["is_penalty"].fillna(False), "pitchiq_xg"].sum())
+            xg = float(part.loc[~part["is_penalty"].fillna(False), "shotworth_xg"].sum())
             tiles[i + 1].metric(
                 team,
                 f"{xg:.2f} xG",
@@ -879,15 +879,15 @@ def timeline_page() -> None:
                 (upto["team"].astype(str) == team)
                 & (~upto["is_penalty"].fillna(False))
             ]
-            cum = part.groupby("minute")["pitchiq_xg"].sum().cumsum()
+            cum = part.groupby("minute")["shotworth_xg"].sum().cumsum()
             xs, ys = (list(cum.index), list(cum.values)) if len(cum) else ([0], [0.0])
             fig.add_trace(
                 go.Scatter(
                     x=xs, y=ys, mode="lines", legendgroup=team,
-                    name=f"{team} — PitchIQ",
+                    name=f"{team} — ShotWorth",
                     line=dict(shape="hv", width=2.6, color=color),
                     customdata=xs,
-                    hovertemplate=f"<b>{team}</b><br>Minute %{{x}}'<br>Cumulative PitchIQ xG %{{y:.2f}}<extra></extra>",
+                    hovertemplate=f"<b>{team}</b><br>Minute %{{x}}'<br>Cumulative ShotWorth xG %{{y:.2f}}<extra></extra>",
                 )
             )
             sb = part.groupby("minute")["xg_statsbomb"].sum().cumsum()
@@ -910,7 +910,7 @@ def timeline_page() -> None:
                         name=f"{team} — goals",
                         marker=dict(symbol="star", size=13, color=color,
                                     line=dict(width=1.2, color="#0b0e14")),
-                        customdata=[[str(p), f"{float(x):.2f}"] for p, x in zip(goal_pts["player"].astype(str), goal_pts["pitchiq_xg"])],
+                        customdata=[[str(p), f"{float(x):.2f}"] for p, x in zip(goal_pts["player"].astype(str), goal_pts["shotworth_xg"])],
                         hovertemplate="<b>%{customdata[0]}</b> scores · xG %{customdata[1]}<extra></extra>",
                     )
                 )
@@ -936,15 +936,15 @@ def timeline_page() -> None:
                     x=dots["x"].astype(float), y=dots["y"].astype(float),
                     mode="markers",
                     marker=dict(
-                        size=7 + 16 * np.sqrt(dots["pitchiq_xg"].astype(float)),
-                        color=dots["pitchiq_xg"].astype(float),
+                        size=7 + 16 * np.sqrt(dots["shotworth_xg"].astype(float)),
+                        color=dots["shotworth_xg"].astype(float),
                         colorscale=XG_SCALE, cmin=0.0, cmax=max(xg_cmax, 0.05),
                         opacity=0.85, line=dict(width=0.6, color="#0b0e14"),
                     ),
                     customdata=np.stack([
                         dots["player"].astype(str).values,
                         dots["minute"].astype(int).astype(str).values,
-                        dots["pitchiq_xg"].astype(float).values,
+                        dots["shotworth_xg"].astype(float).values,
                         np.where(dots["is_goal"], "GOAL", dots["outcome"].astype(str)).astype(object),
                     ], axis=1),
                     hovertemplate=(
@@ -963,10 +963,10 @@ def timeline_page() -> None:
                 st.plotly_chart(pitch_fig, width="stretch",
                                 config=dict(displayModeBar=False, displaylogo=False))
         st.caption(
-            "Left: cumulative PitchIQ xG race (solid) with the StatsBomb benchmark dotted. "
+            "Left: cumulative ShotWorth xG race (solid) with the StatsBomb benchmark dotted. "
             "Right: every shot so far pops in on the pitch as the replay advances — size and "
             "colour = xG, stars mark goals in the race. Penalties are excluded from the "
-            "PitchIQ curve and scored separately."
+            "ShotWorth curve and scored separately."
         )
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
@@ -977,7 +977,7 @@ def timeline_page() -> None:
             chips = "".join(
                 f'<span class="piq-chip{" solid" if row.is_goal else ""}">'
                 f'{int(row.minute)}&#39; · {str(row.player)[:22]} · '
-                f'{float(row.pitchiq_xg):.2f} xG · '
+                f'{float(row.shotworth_xg):.2f} xG · '
                 f'{"GOAL" if row.is_goal else str(row.outcome)[:12]}'
                 f'</span>'
                 for row in recent.itertuples()
@@ -1558,9 +1558,9 @@ def insights_page() -> None:
         elif sort_metric.startswith("goals"):
             ranked = qualified.sort_values("goals_minus_xg", ascending=False)
         else:
-            ranked = qualified.sort_values("xg_pitchiq", ascending=False)
+            ranked = qualified.sort_values("xg_shotworth", ascending=False)
         table = ranked.head(15)[
-            ["team", "competition", "shots", "goals", "xg_pitchiq", "xg_per_shot", "goals_minus_xg"]
+            ["team", "competition", "shots", "goals", "xg_shotworth", "xg_per_shot", "goals_minus_xg"]
         ].copy()
         table.insert(0, "Player", ranked.head(15).index.astype(str))
         table.columns = [
@@ -1725,8 +1725,8 @@ def insights_page() -> None:
             st.image(str(zone_fig))
     with right_zone:
         zone = load_csv("zone_summary.csv")
-        zone_top = zone[zone["shots"] >= 60].sort_values("mean_pitchiq_xg", ascending=False).head(8)
-        zone_top = zone_top[["x_band", "y_band", "shots", "conversion", "mean_pitchiq_xg"]]
+        zone_top = zone[zone["shots"] >= 60].sort_values("mean_shotworth_xg", ascending=False).head(8)
+        zone_top = zone_top[["x_band", "y_band", "shots", "conversion", "mean_shotworth_xg"]]
         zone_top.columns = ["x band", "y band", "Shots", "Conversion", "Mean xG"]
         st.dataframe(
             zone_top,
@@ -1757,15 +1757,15 @@ def insights_page() -> None:
         else:
             tier, tier_color = "COOL", RED
         assisted = prow.get("assisted_xg")
-        bar_scale = max(int(prow["goals"]), float(prow["xg_pitchiq"]), 1.0)
+        bar_scale = max(int(prow["goals"]), float(prow["xg_shotworth"]), 1.0)
         goals_widths = [
             100 * int(prow["goals"]) / bar_scale,
-            100 * float(prow["xg_pitchiq"]) / bar_scale,
+            100 * float(prow["xg_shotworth"]) / bar_scale,
         ]
         stats_grid = [
             ("Shots", f"{int(prow['shots'])}"),
             ("Goals", f"{int(prow['goals'])}"),
-            ("Total xG", f"{float(prow['xg_pitchiq']):.1f}"),
+            ("Total xG", f"{float(prow['xg_shotworth']):.1f}"),
             ("xG / shot", f"{float(prow['xg_per_shot']):.3f}"),
             ("Goals − xG", f"{finishing_delta:+.2f}"),
             ("Assisted xG", f"{float(assisted):.2f}" if pd.notna(assisted) else "—"),
@@ -1801,7 +1801,7 @@ def insights_page() -> None:
 <span style="display:block; height:10px; width:{width:.0f}%; border-radius:8px; background:{bar};"></span>
 </span>
 <span style="font-family:{DISPLAY}; font-weight:700; color:{TEXT}; min-width:40px;">{num:.2f}</span>
-</div>""" for label, num, width, bar in zip(("Goals", "xG"), (int(prow['goals']), float(prow['xg_pitchiq'])), (goals_widths[0], goals_widths[1]), (GREEN, GREEN)))}
+</div>""" for label, num, width, bar in zip(("Goals", "xG"), (int(prow['goals']), float(prow['xg_shotworth'])), (goals_widths[0], goals_widths[1]), (GREEN, GREEN)))}
 </div>
 </div>""",
             unsafe_allow_html=True,
@@ -1835,7 +1835,7 @@ def insights_page() -> None:
             f"- Shot diet: {float(srow['low_quality_share']):.0%} of attempts under 0.05 xG, {float(srow['long_shot_share']):.0%} from outside the box (league means: {league_lowq:.0%}, xG/shot {league_xg_ps:.3f})",
         ]
         if outlet is not None:
-            lines.append(f"- Main outlet: {outlet.name} — {int(outlet['shots'])} shots, {int(outlet['goals'])} goals, {float(outlet['xg_pitchiq']):.1f} xG, {float(outlet['goals_minus_xg']):+.2f} finishing over xG")
+            lines.append(f"- Main outlet: {outlet.name} — {int(outlet['shots'])} shots, {int(outlet['goals'])} goals, {float(outlet['xg_shotworth']):.1f} xG, {float(outlet['goals_minus_xg']):+.2f} finishing over xG")
         if provider is not None:
             lines.append(f"- Main creator: {provider.name} — {int(provider['assists'])} assisted shots worth {float(provider['assisted_xg']):.1f} xG")
         lines.append(f"- Defensive frame: {float(srow['shots_against']) / smatches:.1f} shots and {float(srow['xg_against']) / smatches:.2f} xG faced per match; total differential {float(srow['xg_diff']):+.1f}")
@@ -1859,7 +1859,7 @@ def insights_page() -> None:
     ]
     if outlet is not None:
         bullets.insert(1, f"<div class='sub'>• <b>Main outlet</b> — {outlet.name}: {int(outlet['shots'])} shots, "
-                          f"{int(outlet['goals'])} goals, {float(outlet['xg_pitchiq']):.1f} xG, finishing "
+                          f"{int(outlet['goals'])} goals, {float(outlet['xg_shotworth']):.1f} xG, finishing "
                           f"{float(outlet['goals_minus_xg']):+.2f} above expectation.</div>")
     if provider is not None:
         bullets.insert(2 if outlet is not None else 2, f"<div class='sub'>• <b>Main creator</b> — {provider.name}: "
@@ -1896,7 +1896,7 @@ def sidebar() -> str:
     )
     st.sidebar.markdown(
         f"""<div class="piq-brand">{logo_html}
-<div><div class="name">PITCHIQ</div><div class="tag">xG Intelligence</div></div>
+<div><div class="name">SHOTWORTH</div><div class="tag">xG Intelligence</div></div>
 </div>""",
         unsafe_allow_html=True,
     )
@@ -1955,7 +1955,7 @@ def artifacts_fresh(meta_path: Path) -> bool:
 
 def main() -> None:
     st.set_page_config(
-        page_title="PitchIQ — Expected Goals Intelligence",
+        page_title="ShotWorth — Expected Goals Intelligence",
         page_icon=":material/sports_soccer:",
         layout="wide",
         initial_sidebar_state="expanded",

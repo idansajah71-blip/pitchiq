@@ -1,1 +1,1 @@
-"""PitchIQ source package."""
+"""ShotWorth source package."""

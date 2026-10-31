@@ -1,4 +1,4 @@
-"""Feature engineering for PitchIQ shot-level expected goals.
+"""Feature engineering for ShotWorth shot-level expected goals.
 
 All features are known at the moment of the shot. The StatsBomb xG value,
 shot outcome and shot end location are never used as inputs.
@@ -519,7 +519,7 @@ def build_features(shots: pd.DataFrame | None = None) -> pd.DataFrame:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build PitchIQ features.")
+    parser = argparse.ArgumentParser(description="Build ShotWorth features.")
     parser.parse_args()
     build_features()
 

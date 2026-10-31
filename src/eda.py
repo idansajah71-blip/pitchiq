@@ -1,4 +1,4 @@
-"""Exploratory data analysis for PitchIQ.
+"""Exploratory data analysis for ShotWorth.
 
 Produces four figures in ``reports/figures`` and a compact markdown summary.
 Run with ``python -m src.eda``.
@@ -461,7 +461,7 @@ def run_eda() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run PitchIQ EDA.")
+    parser = argparse.ArgumentParser(description="Run ShotWorth EDA.")
     parser.parse_args()
     run_eda()
 

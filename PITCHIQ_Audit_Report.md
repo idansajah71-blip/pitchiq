@@ -1,4 +1,4 @@
-# PitchIQ source audit — 29 October 2026
+# ShotWorth source audit — 29 October 2026
 
 ## Verdict
 
@@ -18,7 +18,7 @@
 
 **Evidence:** XGBoost and Random Forest hyperparameters were searched on the same `GroupKFold` folds later used to report their CV metrics. Reusing these post-tuning CV results to pick the winner is optimistically biased unless the procedure is nested.
 
-**Changed:** Logistic Regression is the pre-declared, interpretable deployment baseline. Tree models remain comparisons, and their reported CV metrics are labelled exploratory in the UI/docs. No claim is made that PitchIQ outperforms StatsBomb xG.
+**Changed:** Logistic Regression is the pre-declared, interpretable deployment baseline. Tree models remain comparisons, and their reported CV metrics are labelled exploratory in the UI/docs. No claim is made that ShotWorth outperforms StatsBomb xG.
 
 ### P1 — Player leaderboard mixed club/national-team and competition samples
 
@@ -46,7 +46,7 @@
 
 ### P2 — Displayed metrics could mismatch the actual prediction pipeline
 
-**Evidence:** the evaluation page did not apply an optional saved calibrator before scoring probabilities for its calibration plot; the shot-map average could mix StatsBomb penalty xG with PitchIQ non-penalty xG under a generic label.
+**Evidence:** the evaluation page did not apply an optional saved calibrator before scoring probabilities for its calibration plot; the shot-map average could mix StatsBomb penalty xG with ShotWorth non-penalty xG under a generic label.
 
 **Changed:** the evaluation page now applies the saved calibrator, and the shot map explicitly labels the penalty-inclusive metric as a mixed-source display average. Permutation importance also uses the deployed probability path, including the optional calibrator.
 
@@ -58,7 +58,7 @@
 
 ### P2 — A README figure caption overstated what the static graphic showed
 
-**Evidence:** `fig1_shot_map.png` colours points by outcome (goal/no goal), while its README caption said the static graphic was coloured/sized by PitchIQ xG.
+**Evidence:** `fig1_shot_map.png` colours points by outcome (goal/no goal), while its README caption said the static graphic was coloured/sized by ShotWorth xG.
 
 **Changed:** the caption now correctly distinguishes the static exploratory figure from the interactive app map, which uses xG for size/colour.
 

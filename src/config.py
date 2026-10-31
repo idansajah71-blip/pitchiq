@@ -1,4 +1,4 @@
-"""Shared paths and constants for PitchIQ."""
+"""Shared paths and constants for ShotWorth."""
 
 from __future__ import annotations
 

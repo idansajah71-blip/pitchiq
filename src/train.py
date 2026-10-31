@@ -1,4 +1,4 @@
-"""Train, tune, calibrate and compare PitchIQ xG models.
+"""Train, tune, calibrate and compare ShotWorth xG models.
 
 The evaluation protocol is grouped by ``match_id`` to prevent shot-level
 leakage between train and test. Penalties are excluded from the main model.
@@ -917,7 +917,7 @@ def predict_probabilities(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train PitchIQ xG models.")
+    parser = argparse.ArgumentParser(description="Train ShotWorth xG models.")
     parser.parse_args()
     run_training()
 

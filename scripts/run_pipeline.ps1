@@ -1,4 +1,4 @@
-# Reproduce the whole PitchIQ pipeline end-to-end, in order.
+# Reproduce the whole ShotWorth pipeline end-to-end, in order.
 # Usage (from the project root):  ./scripts/run_pipeline.ps1
 
 $steps = @(

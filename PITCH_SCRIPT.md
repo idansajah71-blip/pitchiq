@@ -1,4 +1,4 @@
-# Skrip pitch — PitchIQ — Expected Goals Intelligence (2–3 menit)
+# Skrip pitch — ShotWorth — Expected Goals Intelligence (2–3 menit)
 
 Video screen-record aplikasi, bahasa lisan Indonesia campur istilah teknis, ~350 kata.
 
@@ -8,7 +8,7 @@ Video screen-record aplikasi, bahasa lisan Indonesia campur istilah teknis, ~350
 
 "Di lembar skor, semua tembakan dicatat sama: 'satu shot'. Padahal
 tembakan dari 40 yard bisa punya peluang yang sangat berbeda dengan tap-in
-satu sentuhan. PitchIQ mengubah angka mentah itu menjadi
+satu sentuhan. ShotWorth mengubah angka mentah itu menjadi
 keputusan yang bisa dilakukan pelatih."
 
 **(0:20–0:50) Data — halaman Model Evaluation**
@@ -27,7 +27,7 @@ testing."
 "Model deployment kami adalah regresi logistik yang transparan. Dashboard
 membandingkan ROC-AUC, log loss, Brier score, dan kalibrasi dengan eksperimen
 model pohon serta benchmark xG StatsBomb. Kami tidak mengklaim mengalahkan
-benchmark. Nilai PitchIQ adalah proses yang bisa diperiksa: data sebelum shot,
+benchmark. Nilai ShotWorth adalah proses yang bisa diperiksa: data sebelum shot,
 fitur yang jelas, dan analisis yang membantu menentukan pertanyaan lanjutan
 untuk pelatih. Angka di demo ini berasal dari laporan post-audit yang
 dihasilkan ulang (Okt 2026), bukan dari arsip lama."
@@ -63,7 +63,7 @@ laporan post-audit yang baru dihasilkan ulang, bukan arsip lama."
 
 **(2:50–3:00) Penutup**
 
-"PitchIQ — xG transparan, evaluasi yang jujur, dan rekomendasi berbasis angka.
+"ShotWorth — xG transparan, evaluasi yang jujur, dan rekomendasi berbasis angka.
 Semua itu dibangun dari open data StatsBomb dengan kredit penuh, dan kodenya
 kami rilis dengan lisensi MIT. Terima kasih!"
 

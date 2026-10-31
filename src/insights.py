@@ -1,9 +1,9 @@
-"""Phase 3: pull actionable insight out of the fitted PitchIQ xG model.
+"""Phase 3: pull actionable insight out of the fitted ShotWorth xG model.
 
 Deliverables (coach / non-technical facing):
 
 * A. Factor influence   - SHAP (grouped effects) + permutation importance.
-* B. Player tables      - shots, PitchIQ xG, xG/shot, goals, goals - xG and
+* B. Player tables      - shots, ShotWorth xG, xG/shot, goals, goals - xG and
                           assisted-chance stats (real chance creators).
 * C. Team & zone tables - zone efficiency, xG for/against and shot selection
                           (share of low-quality shots, xG < 0.05).
@@ -105,7 +105,7 @@ def load_scored() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, dic
     X, y = get_X_y(features)  # penalties excluded by default
     artifact = load_artifact()
     probabilities = predict_probabilities(artifact, X)
-    pxg = pd.Series(np.asarray(probabilities, dtype=float), index=X.index, name="pitchiq_xg")
+    pxg = pd.Series(np.asarray(probabilities, dtype=float), index=X.index, name="shotworth_xg")
     return features, X, y, pxg, artifact
 
 
@@ -127,7 +127,7 @@ def _framed(
         raise KeyError(f"features table is missing columns: {missing}")
     frame = features.loc[X.index, meta].copy()
     frame["is_goal"] = y.to_numpy()
-    frame["pitchiq_xg"] = pxg.to_numpy()
+    frame["shotworth_xg"] = pxg.to_numpy()
     frame["distance"] = X["distance"].to_numpy()
     frame["under_pressure"] = X["under_pressure"].to_numpy()
     frame["first_time"] = X["first_time"].to_numpy()
@@ -214,7 +214,7 @@ def plot_shap_summary(table: pd.DataFrame, top: int = 15) -> None:
     fig, ax = plt.subplots(figsize=(7.2, 5.2))
     ax.barh(top_table["feature_group"], top_table["mean_abs_shap"], color="#1d3557")
     ax.set_xlabel("Mean |SHAP| effect on goal probability (log-odds)")
-    ax.set_title("What drives PitchIQ xG most", loc="left")
+    ax.set_title("What drives ShotWorth xG most", loc="left")
     ax.grid(axis="x", color="#d9e2ec", linewidth=0.8)
     ax.set_axisbelow(True)
     for spine in ("top", "right"):
@@ -253,7 +253,7 @@ def plot_shap_dependence(
         for spine in ("top", "right"):
             ax.spines[spine].set_visible(False)
     axes[0].legend(frameon=False, fontsize=8, loc="upper right")
-    fig.suptitle("How distance and angle move PitchIQ xG", x=0.09, ha="left")
+    fig.suptitle("How distance and angle move ShotWorth xG", x=0.09, ha="left")
     fig.tight_layout(rect=(0, 0.05, 1, 1))
     fig.text(0.99, 0.01, CREDIT_NOTE, ha="right", fontsize=7, color="#8a94a6")
     fig.savefig(FIGURES_DIR / "fig7_shap_dependence.png", bbox_inches="tight")
@@ -328,11 +328,11 @@ def player_table(
     stats = frame.groupby(scope, dropna=False).agg(
         shots=("event_id", "size"),
         goals=("is_goal", "sum"),
-        xg_pitchiq=("pitchiq_xg", "sum"),
+        xg_shotworth=("shotworth_xg", "sum"),
         xg_statsbomb=("xg_statsbomb", "sum"),
     )
-    stats["xg_per_shot"] = stats["xg_pitchiq"] / stats["shots"]
-    stats["goals_minus_xg"] = stats["goals"] - stats["xg_pitchiq"]
+    stats["xg_per_shot"] = stats["xg_shotworth"] / stats["shots"]
+    stats["goals_minus_xg"] = stats["goals"] - stats["xg_shotworth"]
     stats["sample_note"] = np.where(
         stats["shots"] < 30,
         "small sample - goals vs xG is noisy",
@@ -355,7 +355,7 @@ def player_table(
         ).agg(
             assists=("event_id", "size"),
             assisted_goals=("is_goal", "sum"),
-            assisted_xg=("pitchiq_xg", "sum"),
+            assisted_xg=("shotworth_xg", "sum"),
         )
         creator_stats.index = creator_stats.index.set_names(scope)
         # Outer join keeps creators who have key passes linked to shots even if
@@ -364,11 +364,11 @@ def player_table(
         stats[["assists", "assisted_goals", "assisted_xg"]] = stats[
             ["assists", "assisted_goals", "assisted_xg"]
         ].fillna(0)
-        stats[["shots", "goals", "xg_pitchiq", "xg_statsbomb"]] = stats[
-            ["shots", "goals", "xg_pitchiq", "xg_statsbomb"]
+        stats[["shots", "goals", "xg_shotworth", "xg_statsbomb"]] = stats[
+            ["shots", "goals", "xg_shotworth", "xg_statsbomb"]
         ].fillna(0)
-        stats["xg_per_shot"] = stats["xg_pitchiq"] / stats["shots"].replace(0, np.nan)
-        stats["goals_minus_xg"] = stats["goals"] - stats["xg_pitchiq"]
+        stats["xg_per_shot"] = stats["xg_shotworth"] / stats["shots"].replace(0, np.nan)
+        stats["goals_minus_xg"] = stats["goals"] - stats["xg_shotworth"]
         stats["sample_note"] = np.where(
             stats["shots"] < 30,
             "small sample - goals vs xG is noisy",
@@ -382,7 +382,7 @@ def player_table(
     return (
         stats.reset_index()
         .set_index("player")
-        .sort_values(["shots", "xg_pitchiq"], ascending=False)
+        .sort_values(["shots", "xg_shotworth"], ascending=False)
     )
 
 def top_players_markdown(player_stats: pd.DataFrame) -> str:
@@ -401,7 +401,7 @@ def top_players_markdown(player_stats: pd.DataFrame) -> str:
         line = "|---|---|---|---|---|---|---|---|"
         rows = [
             f"| {player} | {row['team']} | {row['competition']} | {int(row['shots'])} | "
-            f"{row['xg_pitchiq']:.2f} | {row['xg_per_shot']:.3f} | "
+            f"{row['xg_shotworth']:.2f} | {row['xg_per_shot']:.3f} | "
             f"{int(row['goals'])} | {row['goals_minus_xg']:+.2f} |"
             for player, row in table.iterrows()
         ]
@@ -423,11 +423,11 @@ def top_players_markdown(player_stats: pd.DataFrame) -> str:
         "",
         _creators(creators),
         "",
-        f"### Top finishers (min {MIN_SHOTS} shots, ranked by goals - PitchIQ xG)",
+        f"### Top finishers (min {MIN_SHOTS} shots, ranked by goals - ShotWorth xG)",
         "",
         _players(finishers),
         "",
-        f"### Best shot quality (min {MIN_SHOTS} shots, ranked by PitchIQ xG/shot)",
+        f"### Best shot quality (min {MIN_SHOTS} shots, ranked by ShotWorth xG/shot)",
         "",
         _players(quality),
         "",
@@ -452,7 +452,7 @@ def plot_player_finishing(player_stats: pd.DataFrame) -> None:
     ]
     ax.barh(labels, plot_frame["goals_minus_xg"], color=colors)
     ax.axvline(0, color="#334", lw=0.8)
-    ax.set_xlabel("Goals - PitchIQ xG (amount of goals above expectation)")
+    ax.set_xlabel("Goals - ShotWorth xG (amount of goals above expectation)")
     ax.set_title(
         f"Finishing: best and worst vs expectation (min {MIN_SHOTS} shots)",
         loc="left",
@@ -475,7 +475,7 @@ def plot_player_finishing(player_stats: pd.DataFrame) -> None:
 def team_table(frame: pd.DataFrame, league_xg_per_shot: float) -> pd.DataFrame:
     """xG for/against and shot-selection quality per team."""
     low_quality = frame.assign(
-        low=(frame["pitchiq_xg"] < LOW_QUALITY_XG).astype(float),
+        low=(frame["shotworth_xg"] < LOW_QUALITY_XG).astype(float),
         long=(frame["distance"] > LONG_SHOT_UNITS).astype(float),
     )
 
@@ -483,7 +483,7 @@ def team_table(frame: pd.DataFrame, league_xg_per_shot: float) -> pd.DataFrame:
         matches=("match_id", "nunique"),
         shots_for=("event_id", "size"),
         goals_for=("is_goal", "sum"),
-        xg_for=("pitchiq_xg", "sum"),
+        xg_for=("shotworth_xg", "sum"),
         xg_statsbomb_for=("xg_statsbomb", "sum"),
         low_quality_share=("low", "mean"),
         long_shot_share=("long", "mean"),
@@ -491,7 +491,7 @@ def team_table(frame: pd.DataFrame, league_xg_per_shot: float) -> pd.DataFrame:
     against = low_quality.groupby("opponent").agg(
         shots_against=("event_id", "size"),
         goals_against=("is_goal", "sum"),
-        xg_against=("pitchiq_xg", "sum"),
+        xg_against=("shotworth_xg", "sum"),
     )
 
     table = for_side.join(against, how="left")
@@ -534,7 +534,7 @@ def plot_team_shot_selection(team_stats: pd.DataFrame, league_xg_per_shot: float
             xytext=(3, 2),
             textcoords="offset points",
         )
-    ax.set_xlabel("PitchIQ xG per shot taken")
+    ax.set_xlabel("ShotWorth xG per shot taken")
     ax.set_ylabel(f"Share of shots with xG < {LOW_QUALITY_XG}")
     ax.set_title("Shot selection by team (bubble size = shot volume)", loc="left")
     ax.legend(frameon=False, fontsize=8)
@@ -549,7 +549,7 @@ def plot_team_shot_selection(team_stats: pd.DataFrame, league_xg_per_shot: float
 
 
 def zone_table(frame: pd.DataFrame) -> pd.DataFrame:
-    """Conversion and PitchIQ xG per pitch zone (x/y bands)."""
+    """Conversion and ShotWorth xG per pitch zone (x/y bands)."""
     x_bands = [0, 60, 70, 80, 90, 100, 110, 120.01]
     y_bands = [0, 20, 40, 60, 80.01]
     x_labels = ["x<60", "60-70", "70-80", "80-90", "90-100", "100-110", "110+"]
@@ -564,7 +564,7 @@ def zone_table(frame: pd.DataFrame) -> pd.DataFrame:
             shots=("event_id", "size"),
             goals=("is_goal", "sum"),
             conversion=("is_goal", "mean"),
-            mean_pitchiq_xg=("pitchiq_xg", "mean"),
+            mean_shotworth_xg=("shotworth_xg", "mean"),
         )
         .reset_index()
     )
@@ -583,14 +583,14 @@ def zone_shot_share_matrix(matrix_counts: pd.DataFrame) -> pd.DataFrame:
 def plot_zone_map(zone_stats: pd.DataFrame, league_xg_per_shot: float) -> None:
     """Two-panel zone view: where shots come from and what they convert at."""
     matrix_n = zone_stats.pivot(index="y_band", columns="x_band", values="shots")
-    matrix_c = zone_stats.pivot(index="y_band", columns="x_band", values="mean_pitchiq_xg")
+    matrix_c = zone_stats.pivot(index="y_band", columns="x_band", values="mean_shotworth_xg")
     # A numpy sum of a sparse pivot propagates any NaN and made the whole panel blank.
     matrix_share = zone_shot_share_matrix(matrix_n)
 
     fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.6))
     for ax, matrix, cmap, title in (
         (axes[0], matrix_share, "YlGnBu", "Share of all shots taken"),
-        (axes[1], matrix_c, "RdYlGn", "Mean PitchIQ xG per shot"),
+        (axes[1], matrix_c, "RdYlGn", "Mean ShotWorth xG per shot"),
     ):
         data = np.asarray(matrix, dtype=float)
         im = ax.imshow(data, cmap=cmap, aspect="auto")
@@ -610,7 +610,7 @@ def plot_zone_map(zone_stats: pd.DataFrame, league_xg_per_shot: float) -> None:
                         color="#1b1b1b",
                     )
     fig.suptitle(
-        f"Shot zones (non-penalty). League mean PitchIQ xG/shot = "
+        f"Shot zones (non-penalty). League mean ShotWorth xG/shot = "
         f"{league_xg_per_shot:.3f}",
         x=0.09,
         ha="left",
@@ -630,7 +630,7 @@ def context_quality(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
             shots=("event_id", "size"),
             goals=("is_goal", "sum"),
             conversion=("is_goal", "mean"),
-            mean_pitchiq_xg=("pitchiq_xg", "mean"),
+            mean_shotworth_xg=("shotworth_xg", "mean"),
         ).reset_index()
         table.insert(0, "dimension", dimension)
         rates[dimension] = table
@@ -659,11 +659,11 @@ def build_recommendations(
 
     low = eligible.sort_values("low_quality_share", ascending=False).iloc[0]
     low_attempts = frame[
-        (frame["team"] == low.name) & (frame["pitchiq_xg"] < LOW_QUALITY_XG)
+        (frame["team"] == low.name) & (frame["shotworth_xg"] < LOW_QUALITY_XG)
     ]
     low_attempt_count = len(low_attempts)
     mean_low_xg = (
-        float(low_attempts["pitchiq_xg"].mean()) if low_attempt_count else 0.0
+        float(low_attempts["shotworth_xg"].mean()) if low_attempt_count else 0.0
     )
     replacement_share = 1.0 / 3.0
     replacement_target_xg = 0.10
@@ -675,7 +675,7 @@ def build_recommendations(
     )
     recommend.append(
         f"{low.name} take {low['low_quality_share']:.0%} of their shots below "
-        f"{LOW_QUALITY_XG} xG (PitchIQ xG/shot {low['xg_per_shot_for']:.3f} "
+        f"{LOW_QUALITY_XG} xG (ShotWorth xG/shot {low['xg_per_shot_for']:.3f} "
         f"vs dataset mean {league_xg_per_shot:.3f}). Scenario, not a causal "
         f"forecast: replacing one-third of these {low_attempt_count} shots "
         f"(mean current xG {mean_low_xg:.3f}) with chances rated {replacement_target_xg:.2f} "
@@ -695,7 +695,7 @@ def build_recommendations(
             float(long_attempt["is_goal"].mean()) if n_long else float("nan")
         )
         long_xg = (
-            float(long_attempt["pitchiq_xg"].mean()) if n_long else float("nan")
+            float(long_attempt["shotworth_xg"].mean()) if n_long else float("nan")
         )
         recommend.append(
             f"{shooter.name} attempt shots from {LONG_SHOT_UNITS}+ StatsBomb "
@@ -711,11 +711,11 @@ def build_recommendations(
     patterns = patterns[patterns["shots"] >= 200]
     special = patterns[~patterns["play_pattern"].isin(["Regular Play"])]
     if not special.empty:
-        best = special.sort_values("mean_pitchiq_xg", ascending=False).iloc[0]
+        best = special.sort_values("mean_shotworth_xg", ascending=False).iloc[0]
         baseline = patterns[patterns["play_pattern"] == "Regular Play"]
-        base_xg = baseline["mean_pitchiq_xg"].iloc[0] if not baseline.empty else league_xg_per_shot
+        base_xg = baseline["mean_shotworth_xg"].iloc[0] if not baseline.empty else league_xg_per_shot
         recommend.append(
-            f"'{best['play_pattern']}' shots average {best['mean_pitchiq_xg']:.3f} xG "
+            f"'{best['play_pattern']}' shots average {best['mean_shotworth_xg']:.3f} xG "
             f"(conversion {best['conversion']:.1%}) vs {base_xg:.3f} for regular "
             f"play, across {int(best['shots'])} observed shots. This association "
             "is descriptive—not proof that the pattern or tempo causes better chances; "
@@ -733,22 +733,22 @@ def build_recommendations(
             {"y0-20": "wide", "60-80": "wide", "20-40": "inside channel", "40-60": "inside channel"}
         )
         in_box = in_box.dropna(subset=["lateral_band"]).copy()
-        in_box["xg_sum"] = in_box["mean_pitchiq_xg"] * in_box["shots"]
+        in_box["xg_sum"] = in_box["mean_shotworth_xg"] * in_box["shots"]
         paired = in_box.groupby(["x_band", "lateral_band"], observed=True).agg(
             shots=("shots", "sum"),
             goals=("goals", "sum"),
             xg_sum=("xg_sum", "sum"),
         ).reset_index()
-        paired["mean_pitchiq_xg"] = paired["xg_sum"] / paired["shots"]
+        paired["mean_shotworth_xg"] = paired["xg_sum"] / paired["shots"]
         paired["conversion"] = paired["goals"] / paired["shots"]
         paired = paired[paired["shots"] >= 40]
         if not paired.empty:
-            best_zone = paired.sort_values("mean_pitchiq_xg", ascending=False).iloc[0]
+            best_zone = paired.sort_values("mean_shotworth_xg", ascending=False).iloc[0]
             share = best_zone["shots"] / zone_stats["shots"].sum()
             recommend.append(
                 f"The attacking band {best_zone['x_band']} / {best_zone['lateral_band']} "
                 f"(mirrored y-bands grouped together) has the highest mean xG among "
-                f"qualified paired zones: {best_zone['mean_pitchiq_xg']:.3f} "
+                f"qualified paired zones: {best_zone['mean_shotworth_xg']:.3f} "
                 f"(conversion {best_zone['conversion']:.1%}; {int(best_zone['shots'])} "
                 f"shots, {share:.1%} of all shots). Treat this as a location pattern "
                 "to review on video, not proof that forcing shots into that band will "
@@ -760,7 +760,7 @@ def build_recommendations(
     recommend.append(
         f"{finisher.name} ({finisher['team']}, {finisher['competition']}) "
         f"recorded {int(finisher['goals'])} goals on "
-        f"{finisher['xg_pitchiq']:.2f} PitchIQ xG ({int(finisher['shots'])} shots, "
+        f"{finisher['xg_shotworth']:.2f} ShotWorth xG ({int(finisher['shots'])} shots, "
         f"{finisher['goals_minus_xg']:+.2f} goals minus xG, "
         f"{finisher['xg_per_shot']:.3f} xG/shot). This is an observed residual, "
         "not proof it will persist; validate on a larger or later sample before "
@@ -773,8 +773,8 @@ def build_recommendations(
         free = pressure[pressure["under_pressure"] == 0]
         if not pressed.empty and not free.empty:
             recommend.append(
-                f"Shots under pressure average {pressed['mean_pitchiq_xg'].iloc[0]:.3f} "
-                f"xG/shot vs {free['mean_pitchiq_xg'].iloc[0]:.3f} when not "
+                f"Shots under pressure average {pressed['mean_shotworth_xg'].iloc[0]:.3f} "
+                f"xG/shot vs {free['mean_shotworth_xg'].iloc[0]:.3f} when not "
                 f"(across {int(pressed['shots'].iloc[0]):,} vs "
                 f"{int(free['shots'].iloc[0]):,} shots). Review clips for "
                 "situations where an extra pass was available, but do not infer "
@@ -788,7 +788,7 @@ def write_coach_markdown(recommend: list[str]) -> None:
     lines = [
         "# Recommendations for coaches",
         "",
-        "Derived from PitchIQ xG (non-penalty shots). Numbers are "
+        "Derived from ShotWorth xG (non-penalty shots). Numbers are "
         "descriptive averages from the dataset, not guarantees.",
         "",
     ]
@@ -796,7 +796,7 @@ def write_coach_markdown(recommend: list[str]) -> None:
     lines += [
         "",
         "---",
-        "Data: StatsBomb Open Data (via statsbombpy). PitchIQ is an "
+        "Data: StatsBomb Open Data (via statsbombpy). ShotWorth is an "
         "independent hackathon project.",
     ]
     path = REPORTS_DIR / "coach_recommendations.md"
@@ -840,7 +840,7 @@ def write_insights_summary(
         [
             "# Insights summary (Phase 3)",
             "",
-            "Model output: PitchIQ xG = saved pipeline + optional calibration.",
+            "Model output: ShotWorth xG = saved pipeline + optional calibration.",
             "Penalties excluded everywhere (reported separately). Player and "
             "team tables use **descriptive averages**, not guarantees - "
             "goals - xG is noisy below ~30 shots.",
@@ -867,7 +867,7 @@ def write_insights_summary(
             "`player_summary.csv`, `team_summary.csv`, `zone_summary.csv`, "
             "`context_quality.csv`, `coach_recommendations.md`.",
             "",
-            "Data: StatsBomb Open Data. PitchIQ is an independent hackathon "
+            "Data: StatsBomb Open Data. ShotWorth is an independent hackathon "
             "project and is not affiliated with StatsBomb.",
         ]
     )
@@ -888,7 +888,7 @@ def run_insights(min_shots: int = MIN_SHOTS) -> None:
 
     features, X, y, pxg, artifact = load_scored()
     frame = _framed(features, X, y, pxg)
-    league_xg_per_shot = float(frame["pitchiq_xg"].mean())
+    league_xg_per_shot = float(frame["shotworth_xg"].mean())
 
     print("=== A. FACTOR INFLUENCE ===")
     train_index, test_index = grouped_split(
@@ -928,7 +928,7 @@ def run_insights(min_shots: int = MIN_SHOTS) -> None:
     qualified = player_stats[player_stats["shots"] >= MIN_SHOTS]
     print(
         qualified.sort_values("goals_minus_xg", ascending=False)
-        .head(5)[["team", "shots", "goals", "xg_pitchiq", "goals_minus_xg"]]
+        .head(5)[["team", "shots", "goals", "xg_shotworth", "goals_minus_xg"]]
         .to_string()
     )
 
@@ -939,7 +939,7 @@ def run_insights(min_shots: int = MIN_SHOTS) -> None:
     zone_stats = zone_table(frame)
     plot_zone_map(zone_stats, league_xg_per_shot)
     context = context_quality(frame)
-    print(f"- League xG/shot (PitchIQ): {league_xg_per_shot:.3f}")
+    print(f"- League xG/shot (ShotWorth): {league_xg_per_shot:.3f}")
     print(team_stats.head(5)[["shots_for", "xg_for", "xg_per_shot_for", "low_quality_share"]].to_string())
 
     print("\n=== D. RECOMMENDATIONS ===")
@@ -957,7 +957,7 @@ def run_insights(min_shots: int = MIN_SHOTS) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build PitchIQ insights.")
+    parser = argparse.ArgumentParser(description="Build ShotWorth insights.")
     parser.add_argument("--min-shots", type=int, default=MIN_SHOTS)
     args = parser.parse_args()
     run_insights(min_shots=args.min_shots)

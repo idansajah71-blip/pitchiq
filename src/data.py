@@ -331,7 +331,7 @@ def summarize_shots(shots: pd.DataFrame) -> None:
     penalties = shots["is_penalty"]
     non_penalty = shots.loc[~penalties]
 
-    print("\n=== PITCHIQ DATASET ===")
+    print("\n=== SHOTWORTH DATASET ===")
     print(f"Competitions : {shots['competition'].nunique()}")
     print(f"Matches      : {shots['match_id'].nunique():,}")
     print(f"Shots        : {total:,}")
@@ -409,7 +409,7 @@ def summarize_shots(shots: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build the PitchIQ shot dataset.")
+    parser = argparse.ArgumentParser(description="Build the ShotWorth shot dataset.")
     parser.add_argument(
         "--refresh", action="store_true", help="ignore caches and re-download"
     )

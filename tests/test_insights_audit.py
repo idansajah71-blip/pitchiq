@@ -23,7 +23,7 @@ def test_player_stats_are_separated_by_team_and_competition() -> None:
                 "event_id": "shot-1",
                 "match_id": 1,
                 "is_goal": 1,
-                "pitchiq_xg": 0.3,
+                "shotworth_xg": 0.3,
                 "xg_statsbomb": 0.25,
             },
             {
@@ -33,7 +33,7 @@ def test_player_stats_are_separated_by_team_and_competition() -> None:
                 "event_id": "shot-2",
                 "match_id": 2,
                 "is_goal": 0,
-                "pitchiq_xg": 0.1,
+                "shotworth_xg": 0.1,
                 "xg_statsbomb": 0.08,
             },
         ]
@@ -84,7 +84,7 @@ def test_player_markdown_keeps_team_and_competition_scope(monkeypatch: pytest.Mo
                 "event_id": "shot-1",
                 "match_id": 1,
                 "is_goal": 1,
-                "pitchiq_xg": 0.3,
+                "shotworth_xg": 0.3,
                 "xg_statsbomb": 0.25,
             },
             {
@@ -94,7 +94,7 @@ def test_player_markdown_keeps_team_and_competition_scope(monkeypatch: pytest.Mo
                 "event_id": "shot-2",
                 "match_id": 2,
                 "is_goal": 0,
-                "pitchiq_xg": 0.1,
+                "shotworth_xg": 0.1,
                 "xg_statsbomb": 0.08,
             },
         ]
@@ -115,7 +115,7 @@ def test_creator_without_own_shot_remains_in_creator_leaderboard() -> None:
                 "event_id": "shot-1",
                 "match_id": 1,
                 "is_goal": 1,
-                "pitchiq_xg": 0.3,
+                "shotworth_xg": 0.3,
                 "xg_statsbomb": 0.25,
             }
         ]
